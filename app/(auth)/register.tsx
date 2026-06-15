@@ -17,12 +17,37 @@ import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
-function showAlert(title: string, message: string) {
-  if (Platform.OS === 'web') {
-    // Alert.alert is a no-op on web
-    return;
-  }
-  Alert.alert(title, message);
+async function registerWeb(email: string, password: string): Promise<string | null> {
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const json = await res.json();
+  if (!res.ok) return json.error ?? 'Error desconocido';
+  return null;
+}
+
+async function registerNative(email: string, password: string): Promise<string | null> {
+  const { data: invite, error: inviteError } = await supabase
+    .from('user_invites')
+    .select('id')
+    .eq('email', email)
+    .is('used_at', null)
+    .maybeSingle();
+
+  if (inviteError) return `Error al verificar invitación: ${inviteError.message}`;
+  if (!invite) return 'Esta app es invite-only. Contacta al administrador.';
+
+  const { error: signUpError } = await supabase.auth.signUp({ email, password });
+  if (signUpError) return signUpError.message;
+
+  await supabase
+    .from('user_invites')
+    .update({ used_at: new Date().toISOString() })
+    .eq('email', email);
+
+  return null;
 }
 
 export default function RegisterScreen() {
@@ -35,71 +60,45 @@ export default function RegisterScreen() {
   const colors = getColors(useColorScheme());
 
   async function handleRegister() {
-    console.log('[Register] submit triggered', { email });
+    console.log('[Register] submit', { email, platform: Platform.OS });
     setErrorMsg(null);
     setSuccessMsg(null);
 
     if (!email || !password || !confirm) {
       setErrorMsg('Completa todos los campos');
-      showAlert('Error', 'Completa todos los campos');
       return;
     }
     if (password !== confirm) {
       setErrorMsg('Las contraseñas no coinciden');
-      showAlert('Error', 'Las contraseñas no coinciden');
       return;
     }
     if (password.length < 6) {
       setErrorMsg('La contraseña debe tener al menos 6 caracteres');
-      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('[Register] checking invite for', email.toLowerCase());
+      const normalizedEmail = email.toLowerCase().trim();
+      const error = Platform.OS === 'web'
+        ? await registerWeb(normalizedEmail, password)
+        : await registerNative(normalizedEmail, password);
 
-      const { data: invite, error: inviteError } = await supabase
-        .from('user_invites')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .is('used_at', null)
-        .single();
-
-      console.log('[Register] invite result:', { invite, inviteError });
-
-      if (inviteError || !invite) {
-        const msg = inviteError
-          ? `Error al verificar invitación: ${inviteError.message}`
-          : 'Esta app es invite-only. Contacta al administrador.';
-        setErrorMsg(msg);
-        showAlert('Acceso restringido', msg);
+      if (error) {
+        console.error('[Register] error:', error);
+        setErrorMsg(error);
+        if (Platform.OS !== 'web') Alert.alert('Error', error);
         setLoading(false);
         return;
       }
 
-      console.log('[Register] invite valid, signing up...');
+      const msg = Platform.OS === 'web'
+        ? 'Cuenta creada. Ya puedes iniciar sesión.'
+        : 'Cuenta creada. Revisa tu email para confirmar el registro.';
 
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
-
-      console.log('[Register] signUp result:', { signUpError });
-
-      if (signUpError) {
-        setErrorMsg(`Error al crear cuenta: ${signUpError.message}`);
-        showAlert('Error', signUpError.message);
-        setLoading(false);
-        return;
-      }
-
-      await supabase
-        .from('user_invites')
-        .update({ used_at: new Date().toISOString() })
-        .eq('email', email.toLowerCase());
-
-      const msg = 'Cuenta creada. Revisa tu email para confirmar el registro.';
+      console.log('[Register] success');
       setSuccessMsg(msg);
-      showAlert('Cuenta creada', msg);
       setLoading(false);
 
       setTimeout(() => router.replace('/(auth)/login'), 2000);
@@ -155,13 +154,8 @@ export default function RegisterScreen() {
             style={styles.submitBtn}
           />
 
-          {errorMsg && (
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          )}
-
-          {successMsg && (
-            <Text style={styles.successText}>{successMsg}</Text>
-          )}
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+          {successMsg && <Text style={styles.successText}>{successMsg}</Text>}
 
           <TouchableOpacity style={styles.linkButton} onPress={() => router.back()}>
             <Text style={[styles.linkText, { color: colors.accent }]}>
@@ -175,9 +169,7 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   inner: {
     flex: 1,
     justifyContent: 'center',
@@ -195,9 +187,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: Spacing.section,
   },
-  form: {
-    gap: Spacing.gapMd,
-  },
+  form: { gap: Spacing.gapMd },
   submitBtn: {
     marginTop: Spacing.gapSm,
     alignSelf: 'stretch',
@@ -218,7 +208,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.base,
   },
-  linkText: {
-    fontSize: FontSize.md,
-  },
+  linkText: { fontSize: FontSize.md },
 });
