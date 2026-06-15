@@ -12,62 +12,103 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getColors } from '../../constants/colors';
-import { Spacing, Radius } from '../../constants/spacing';
+import { Spacing } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    // Alert.alert is a no-op on web
+    return;
+  }
+  Alert.alert(title, message);
+}
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const colors = getColors(useColorScheme());
 
   async function handleRegister() {
+    console.log('[Register] submit triggered', { email });
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
     if (!email || !password || !confirm) {
-      Alert.alert('Error', 'Completa todos los campos');
+      setErrorMsg('Completa todos los campos');
+      showAlert('Error', 'Completa todos los campos');
       return;
     }
     if (password !== confirm) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      setErrorMsg('Las contraseñas no coinciden');
+      showAlert('Error', 'Las contraseñas no coinciden');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      setErrorMsg('La contraseña debe tener al menos 6 caracteres');
+      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
 
-    const { data: invite } = await supabase
-      .from('user_invites')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .is('used_at', null)
-      .single();
+    try {
+      console.log('[Register] checking invite for', email.toLowerCase());
 
-    if (!invite) {
+      const { data: invite, error: inviteError } = await supabase
+        .from('user_invites')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .is('used_at', null)
+        .single();
+
+      console.log('[Register] invite result:', { invite, inviteError });
+
+      if (inviteError || !invite) {
+        const msg = inviteError
+          ? `Error al verificar invitación: ${inviteError.message}`
+          : 'Esta app es invite-only. Contacta al administrador.';
+        setErrorMsg(msg);
+        showAlert('Acceso restringido', msg);
+        setLoading(false);
+        return;
+      }
+
+      console.log('[Register] invite valid, signing up...');
+
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+
+      console.log('[Register] signUp result:', { signUpError });
+
+      if (signUpError) {
+        setErrorMsg(`Error al crear cuenta: ${signUpError.message}`);
+        showAlert('Error', signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      await supabase
+        .from('user_invites')
+        .update({ used_at: new Date().toISOString() })
+        .eq('email', email.toLowerCase());
+
+      const msg = 'Cuenta creada. Revisa tu email para confirmar el registro.';
+      setSuccessMsg(msg);
+      showAlert('Cuenta creada', msg);
       setLoading(false);
-      Alert.alert('Acceso restringido', 'Esta app es invite-only. Contacta al administrador.');
-      return;
-    }
 
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
+      setTimeout(() => router.replace('/(auth)/login'), 2000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error inesperado';
+      console.error('[Register] unexpected error:', err);
+      setErrorMsg(`Error inesperado: ${msg}`);
       setLoading(false);
-      Alert.alert('Error', error.message);
-      return;
     }
-
-    await supabase
-      .from('user_invites')
-      .update({ used_at: new Date().toISOString() })
-      .eq('email', email.toLowerCase());
-
-    setLoading(false);
-    Alert.alert('Cuenta creada', 'Revisa tu email para confirmar el registro.');
-    router.replace('/(auth)/login');
   }
 
   return (
@@ -85,7 +126,7 @@ export default function RegisterScreen() {
           <Input
             label="Email (debe tener invitación)"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -94,14 +135,14 @@ export default function RegisterScreen() {
           <Input
             label="Contraseña"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(v) => { setPassword(v); setErrorMsg(null); }}
             secureTextEntry
             placeholder="••••••"
           />
           <Input
             label="Confirmar contraseña"
             value={confirm}
-            onChangeText={setConfirm}
+            onChangeText={(v) => { setConfirm(v); setErrorMsg(null); }}
             secureTextEntry
             placeholder="••••••"
           />
@@ -113,6 +154,14 @@ export default function RegisterScreen() {
             fullWidth
             style={styles.submitBtn}
           />
+
+          {errorMsg && (
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          )}
+
+          {successMsg && (
+            <Text style={styles.successText}>{successMsg}</Text>
+          )}
 
           <TouchableOpacity style={styles.linkButton} onPress={() => router.back()}>
             <Text style={[styles.linkText, { color: colors.accent }]}>
@@ -152,6 +201,18 @@ const styles = StyleSheet.create({
   submitBtn: {
     marginTop: Spacing.gapSm,
     alignSelf: 'stretch',
+  },
+  errorText: {
+    color: '#ff453a',
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  successText: {
+    color: '#30d158',
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    marginTop: 4,
   },
   linkButton: {
     alignItems: 'center',

@@ -12,7 +12,7 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getColors } from '../../constants/colors';
-import { Spacing, Radius } from '../../constants/spacing';
+import { Spacing } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -21,17 +21,28 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const colors = getColors(useColorScheme());
 
   async function handleLogin() {
+    console.log('[Login] submit triggered', { email });
+    setErrorMsg(null);
+
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      setErrorMsg('Por favor completa todos los campos');
+      if (Platform.OS !== 'web') Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
+
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) Alert.alert('Error de acceso', error.message);
+
+    if (error) {
+      console.error('[Login] error:', error.message);
+      setErrorMsg(error.message);
+      if (Platform.OS !== 'web') Alert.alert('Error de acceso', error.message);
+    }
   }
 
   return (
@@ -49,7 +60,7 @@ export default function LoginScreen() {
           <Input
             label="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -58,7 +69,7 @@ export default function LoginScreen() {
           <Input
             label="Contraseña"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(v) => { setPassword(v); setErrorMsg(null); }}
             secureTextEntry
             placeholder="••••••"
           />
@@ -70,6 +81,10 @@ export default function LoginScreen() {
             fullWidth
             style={styles.submitBtn}
           />
+
+          {errorMsg && (
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          )}
 
           <TouchableOpacity
             style={styles.linkButton}
@@ -113,6 +128,12 @@ const styles = StyleSheet.create({
   submitBtn: {
     marginTop: Spacing.gapSm,
     alignSelf: 'stretch',
+  },
+  errorText: {
+    color: '#ff453a',
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    marginTop: 4,
   },
   linkButton: {
     alignItems: 'center',
