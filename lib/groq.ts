@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { ChatMessage } from '../types';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -7,26 +8,30 @@ export async function askGroq(
   messages: ChatMessage[],
   systemPrompt?: string
 ): Promise<string> {
-  const groqKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-  if (!groqKey) throw new Error('GROQ_API_KEY not set');
-
   const allMessages = systemPrompt
     ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
     : messages;
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${groqKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: allMessages,
-      max_tokens: 1024,
-      temperature: 0.7,
-    }),
+  const body = JSON.stringify({
+    model: GROQ_MODEL,
+    messages: allMessages,
+    max_tokens: 1024,
+    temperature: 0.7,
   });
+
+  let url: string;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  if (Platform.OS === 'web') {
+    url = '/api/chat';
+  } else {
+    const groqKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+    if (!groqKey) throw new Error('GROQ_API_KEY not set');
+    url = GROQ_API_URL;
+    headers.Authorization = `Bearer ${groqKey}`;
+  }
+
+  const response = await fetch(url, { method: 'POST', headers, body });
 
   if (!response.ok) {
     const error = await response.text();
