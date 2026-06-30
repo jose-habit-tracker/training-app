@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,15 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { askGroq } from '../../lib/groq';
 import { supabase } from '../../lib/supabase';
-import { ChatMessage, TrainingSession } from '../../types';
+import { ChatMessage, TrainingSession, DayPlan } from '../../types';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek } from '../../hooks/useTraining';
+import { usePlan } from '../../lib/PlanContext';
 
 // ─── Build system prompt with recent session context ──────────────────────────
-function buildSystemPrompt(recentSessions: TrainingSession[]): string {
+function buildSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): string {
   const weekNumber = getCurrentWeek();
 
   const sessionSummary = recentSessions.length > 0
@@ -37,21 +38,19 @@ function buildSystemPrompt(recentSessions: TrainingSession[]): string {
       }).join('\n')
     : 'Sin sesiones recientes registradas.';
 
-  return `Eres el coach personal de un atleta de 23 años que se prepara para una media maratón en octubre 2025 y Hyrox posteriormente.
+  const planSummary = days
+    .map((d) => `- ${d.dayName}: ${d.title} (${SESSION_LABELS[d.sessionType] ?? d.sessionType}, ${d.duration} min)`)
+    .join('\n');
+
+  return `Eres el coach personal de un atleta de 23 años que se prepara para una media maratón y Hyrox posteriormente.
 El atleta entrena 7 días a la semana: running, natación y gimnasio (énfasis Hyrox).
 Estás en la semana ${weekNumber} del ciclo de entrenamiento.
 
 ÚLTIMAS SESIONES REGISTRADAS:
 ${sessionSummary}
 
-PLAN SEMANAL:
-- Lunes: Running umbral (60 min)
-- Martes: Natación técnica (45 min)
-- Miércoles: Fuerza + movilidad (70 min)
-- Jueves: Intervalos VO2max (55 min)
-- Viernes: Hyrox circuit (65 min)
-- Sábado: Tirada larga (100 min)
-- Domingo: Recuperación activa (30 min)
+PLAN SEMANAL ACTUAL DEL ATLETA (puede haberlo editado, úsalo como fuente de verdad):
+${planSummary}
 
 INSTRUCCIONES:
 - Responde siempre en español, de forma concisa y práctica.
@@ -63,13 +62,20 @@ INSTRUCCIONES:
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function ChatScreen() {
   const colors = getColors(useColorScheme());
+  const { days } = usePlan();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [recentSessions, setRecentSessions] = useState<TrainingSession[]>([]);
   const listRef = useRef<FlatList>(null);
   const userIdRef = useRef<string | null>(null);
+
+  // Se recalcula con el plan actual (refleja ediciones) y las últimas sesiones
+  const systemPrompt = useMemo(
+    () => buildSystemPrompt(days, recentSessions),
+    [days, recentSessions],
+  );
 
   // ── Load conversation history + build context from Supabase ──
   useEffect(() => {
@@ -86,8 +92,7 @@ export default function ChatScreen() {
         .order('session_date', { ascending: false })
         .limit(3);
 
-      const prompt = buildSystemPrompt((sessions ?? []) as TrainingSession[]);
-      setSystemPrompt(prompt);
+      setRecentSessions((sessions ?? []) as TrainingSession[]);
 
       // Last 20 conversation messages
       const { data: history } = await supabase
