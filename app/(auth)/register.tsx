@@ -17,39 +17,6 @@ import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
-async function registerWeb(email: string, password: string): Promise<string | null> {
-  const res = await fetch('/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const json = await res.json();
-  if (!res.ok) return json.error ?? 'Error desconocido';
-  return null;
-}
-
-async function registerNative(email: string, password: string): Promise<string | null> {
-  const { data: invite, error: inviteError } = await supabase
-    .from('user_invites')
-    .select('id')
-    .eq('email', email)
-    .is('used_at', null)
-    .maybeSingle();
-
-  if (inviteError) return `Error al verificar invitación: ${inviteError.message}`;
-  if (!invite) return 'Esta app es invite-only. Contacta al administrador.';
-
-  const { error: signUpError } = await supabase.auth.signUp({ email, password });
-  if (signUpError) return signUpError.message;
-
-  await supabase
-    .from('user_invites')
-    .update({ used_at: new Date().toISOString() })
-    .eq('email', email);
-
-  return null;
-}
-
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,24 +48,18 @@ export default function RegisterScreen() {
 
     try {
       const normalizedEmail = email.toLowerCase().trim();
-      const error = Platform.OS === 'web'
-        ? await registerWeb(normalizedEmail, password)
-        : await registerNative(normalizedEmail, password);
+      const { error } = await supabase.auth.signUp({ email: normalizedEmail, password });
 
       if (error) {
-        console.error('[Register] error:', error);
-        setErrorMsg(error);
-        if (Platform.OS !== 'web') Alert.alert('Error', error);
+        console.error('[Register] error:', error.message);
+        setErrorMsg(error.message);
+        if (Platform.OS !== 'web') Alert.alert('Error', error.message);
         setLoading(false);
         return;
       }
 
-      const msg = Platform.OS === 'web'
-        ? 'Cuenta creada. Ya puedes iniciar sesión.'
-        : 'Cuenta creada. Revisa tu email para confirmar el registro.';
-
       console.log('[Register] success');
-      setSuccessMsg(msg);
+      setSuccessMsg('Cuenta creada. Ya puedes iniciar sesión.');
       setLoading(false);
 
       setTimeout(() => router.replace('/(auth)/login'), 2000);
@@ -118,12 +79,12 @@ export default function RegisterScreen() {
       <View style={styles.inner}>
         <Text style={[styles.title, { color: colors.text }]}>Crear cuenta</Text>
         <Text style={[styles.subtitle, { color: colors.text3 }]}>
-          App de acceso por invitación
+          Crea tu cuenta para empezar
         </Text>
 
         <View style={styles.form}>
           <Input
-            label="Email (debe tener invitación)"
+            label="Email"
             value={email}
             onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
             keyboardType="email-address"
