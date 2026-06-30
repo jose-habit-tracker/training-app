@@ -13,15 +13,18 @@ import { router } from 'expo-router';
 import { getColors, SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { WEEKLY_STRUCTURE, SESSION_LABELS } from '../../constants/trainingPlan';
+import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan, ExerciseTemplate } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useToday, getPhaseLabel } from '../../hooks/useTraining';
+import { usePlan } from '../../lib/PlanContext';
 
 export default function HoyScreen() {
   const colors = getColors(useColorScheme());
-  const { plan: todayPlan, weekNumber, dayKey, loggedSession, loadingLog } = useToday();
+  const { weekNumber, dayKey, loggedSession, loadingLog } = useToday();
+  const { days } = usePlan();
+  const todayPlan = days.find((d) => d.day === dayKey) ?? null;
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [sessionDone, setSessionDone] = useState(false);
 

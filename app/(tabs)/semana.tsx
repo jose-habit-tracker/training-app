@@ -7,13 +7,16 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { getColors, SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { WEEKLY_STRUCTURE, SESSION_LABELS } from '../../constants/trainingPlan';
+import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan } from '../../types';
 import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { getCurrentWeek, getPhaseLabel } from '../../hooks/useTraining';
+import { usePlan } from '../../lib/PlanContext';
 
 const DAY_MAP: Record<number, string> = {
   0: 'sunday',
@@ -29,6 +32,7 @@ export default function SemanaScreen() {
   const colors = getColors(useColorScheme());
   const todayKey = DAY_MAP[new Date().getDay()];
   const week = getCurrentWeek();
+  const { days } = usePlan();
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -45,7 +49,15 @@ export default function SemanaScreen() {
           </View>
         </View>
 
-        {WEEKLY_STRUCTURE.map((day) => (
+        <Button
+          label="Editar plan"
+          variant="secondary"
+          fullWidth
+          onPress={() => router.push('/plan')}
+          style={s.editBtn}
+        />
+
+        {days.map((day) => (
           <DayCard key={day.day} day={day} isToday={day.day === todayKey} colors={colors} />
         ))}
       </ScrollView>
@@ -138,6 +150,8 @@ const s = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   weekBadgeText: { fontSize: FontSize.base, fontWeight: FontWeight.label },
+
+  editBtn: { marginBottom: Spacing.lg },
 
   card: {
     borderRadius: Radius.card,

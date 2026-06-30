@@ -14,13 +14,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { getColors, SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { WEEKLY_STRUCTURE, SESSION_LABELS } from '../../constants/trainingPlan';
+import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { ExerciseTemplate } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { askGroq } from '../../lib/groq';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek } from '../../hooks/useTraining';
+import { usePlan } from '../../lib/PlanContext';
 
 // ─── System prompt builder ────────────────────────────────────────────────────
 function buildFeedbackPrompt(
@@ -169,7 +170,8 @@ export default function LogDayScreen() {
   const { day, done } = useLocalSearchParams<{ day: string; done?: string }>();
   const colors = getColors(useColorScheme());
 
-  const plan = WEEKLY_STRUCTURE.find((d) => d.day === day);
+  const { days } = usePlan();
+  const plan = days.find((d) => d.day === day);
   const weekNumber = getCurrentWeek();
 
   // Pre-marca los ejercicios que ya se tildaron en la pantalla Hoy

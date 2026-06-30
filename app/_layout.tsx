@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
+import { PlanProvider } from '../lib/PlanContext';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -57,21 +58,39 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <StatusBar style="auto" />
-          <NavigationGuard />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="log/[day]"
-              options={{
-                headerShown: true,
-                headerTitle: 'Registrar sesión',
-                headerBackTitle: 'Atrás',
-              }}
-            />
-          </Stack>
+          <PlanProvider>
+            <StatusBar style="auto" />
+            <NavigationGuard />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="log/[day]"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Registrar sesión',
+                  headerBackTitle: 'Atrás',
+                }}
+              />
+              <Stack.Screen
+                name="plan/index"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Editar plan',
+                  headerBackTitle: 'Atrás',
+                }}
+              />
+              <Stack.Screen
+                name="plan/[day]"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Editar día',
+                  headerBackTitle: 'Atrás',
+                }}
+              />
+            </Stack>
+          </PlanProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
