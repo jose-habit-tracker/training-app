@@ -3,9 +3,11 @@ import {
   View,
   Text,
   FlatList,
+  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
   ActivityIndicator,
   useColorScheme,
 } from 'react-native';
@@ -27,6 +29,18 @@ const GREETING: ChatMessage = {
   role: 'assistant',
   content: '¡Hola! Soy tu coach de IA. He cargado tu historial de entrenamiento reciente. ¿En qué puedo ayudarte?',
 };
+
+function confirmApply(message: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(typeof window !== 'undefined' && window.confirm(message));
+  }
+  return new Promise((resolve) => {
+    Alert.alert('Aplicar cambios', message, [
+      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Aplicar', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 const DAY_MAP: Record<number, string> = {
   0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
@@ -56,9 +70,21 @@ function buildSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): 
       }).join('\n')
     : 'Sin sesiones recientes registradas.';
 
-  const planSummary = days
-    .map((d) => `- ${d.dayName}: ${d.title} (${SESSION_LABELS[d.sessionType] ?? d.sessionType}, ${d.duration} min)`)
-    .join('\n');
+  const planJson = JSON.stringify(
+    days.map((d) => ({
+      day: d.day,
+      dayName: d.dayName,
+      sessionType: d.sessionType,
+      title: d.title,
+      duration: d.duration,
+      description: d.description,
+      warmup: d.warmup,
+      cooldown: d.cooldown,
+      notes: d.notes,
+      exercises: (d.exercises ?? []).map(({ id, ...ex }) => ex),
+    })),
+  );
+  const sessionTypes = Object.keys(SESSION_LABELS).join(', ');
 
   return `Eres el coach personal de un atleta de 23 años que se prepara para una media maratón y Hyrox posteriormente.
 El atleta entrena 7 días a la semana: running, natación y gimnasio (énfasis Hyrox).
@@ -70,8 +96,18 @@ No deduzcas el día por tu cuenta; usa siempre esta fecha como "hoy".
 ÚLTIMAS SESIONES REGISTRADAS:
 ${sessionSummary}
 
-PLAN SEMANAL ACTUAL DEL ATLETA (puede haberlo editado, úsalo como fuente de verdad):
-${planSummary}
+PLAN COMPLETO ACTUAL DEL ATLETA (JSON, fuente de verdad — incluye ejercicios, calentamiento, enfriamiento y notas de cada día):
+${planJson}
+
+CAPACIDAD DE EDICIÓN DEL PLAN:
+- Tienes el plan completo arriba. Cuando el atleta te pregunte por una sesión, usa todos sus detalles (ejercicios, series, cargas, notas).
+- Si el atleta te pide MODIFICAR el plan (cambiar ejercicios, tipo, duración, etc.), explica brevemente el cambio y AÑADE AL FINAL un bloque con el/los días modificados COMPLETOS, exactamente así:
+\`\`\`plan
+[{"day":"tuesday","dayName":"Martes","sessionType":"running_easy","title":"Carrera Suave","duration":40,"description":"...","warmup":"...","cooldown":"...","notes":"...","exercises":[{"name":"Rodaje suave","duration":"30 min","notes":"z2"}]}]
+\`\`\`
+- Incluye SOLO los días que cambian, con todos sus campos. El campo "day" debe ser uno de: monday, tuesday, wednesday, thursday, friday, saturday, sunday.
+- "sessionType" debe ser uno de: ${sessionTypes}.
+- NO incluyas el bloque \`\`\`plan si no te piden cambios.
 
 INSTRUCCIONES:
 - Responde siempre en español, de forma concisa y práctica.
@@ -80,16 +116,57 @@ INSTRUCCIONES:
 - Tono motivador pero realista. Máximo 180 palabras por respuesta salvo que te pidan más detalle.`;
 }
 
+// ─── Plan-update parsing / applying ─────────────────────────────────────────────
+const SESSION_TYPE_KEYS = Object.keys(SESSION_LABELS);
+
+// Extrae el bloque ```plan ...``` de la respuesta del coach, si lo hay
+function extractPlanUpdate(text: string): { clean: string; proposed: DayPlan[] | null } {
+  const m = text.match(/```(?:plan|json)\s*([\s\S]*?)```/i);
+  if (!m) return { clean: text, proposed: null };
+  const clean = text.replace(m[0], '').trim();
+  try {
+    const parsed = JSON.parse(m[1].trim());
+    const arr = (Array.isArray(parsed) ? parsed : [parsed]) as DayPlan[];
+    if (!arr.length) return { clean: text, proposed: null };
+    return { clean: clean || 'He preparado cambios en tu plan.', proposed: arr };
+  } catch {
+    return { clean: text, proposed: null };
+  }
+}
+
+// Fusiona los días propuestos sobre el plan actual (validando y regenerando ids)
+function applyProposed(current: DayPlan[], proposed: DayPlan[]): DayPlan[] {
+  return current.map((d) => {
+    const p = proposed.find((x) => x.day === d.day);
+    if (!p) return d;
+    const sessionType = SESSION_TYPE_KEYS.includes(p.sessionType) ? p.sessionType : d.sessionType;
+    const exercises = Array.isArray(p.exercises)
+      ? p.exercises.map((ex, i) => ({ ...ex, id: `${d.day}-${Date.now()}-${i}` }))
+      : d.exercises;
+    return {
+      ...d,
+      ...p,
+      day: d.day,
+      dayName: d.dayName,
+      sessionType,
+      duration: Number(p.duration) || d.duration,
+      exercises,
+    };
+  });
+}
+
 // ─── Conversation screen ──────────────────────────────────────────────────────
 export default function ConversationScreen() {
   const colors = getColors(useColorScheme());
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
-  const { days } = usePlan();
+  const { days, save } = usePlan();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [recentSessions, setRecentSessions] = useState<TrainingSession[]>([]);
+  const [applied, setApplied] = useState<Set<number>>(new Set());
+  const [applyingIndex, setApplyingIndex] = useState<number | null>(null);
   const listRef = useRef<FlatList>(null);
   const userIdRef = useRef<string | null>(null);
 
@@ -180,8 +257,19 @@ export default function ConversationScreen() {
     }
   }, [input, loading, messages, systemPrompt, persistMessage, conversationId]);
 
-  function renderMessage({ item }: { item: ChatMessage }) {
+  const handleApply = useCallback(async (index: number, proposed: DayPlan[]) => {
+    const changed = proposed.map((p) => p.dayName ?? p.day).join(', ');
+    if (!(await confirmApply(`El coach propone cambios en: ${changed}. ¿Aplicar a tu plan?`))) return;
+    setApplyingIndex(index);
+    const err = await save(applyProposed(days, proposed));
+    setApplyingIndex(null);
+    if (err) { Alert.alert('Error al aplicar', err); return; }
+    setApplied((prev) => new Set(prev).add(index));
+  }, [days, save]);
+
+  function renderMessage({ item, index }: { item: ChatMessage; index: number }) {
     const isUser = item.role === 'user';
+    const { clean, proposed } = isUser ? { clean: item.content, proposed: null } : extractPlanUpdate(item.content);
     return (
       <View style={[s.bubble, isUser ? s.userBubble : s.aiBubble]}>
         {!isUser && (
@@ -198,8 +286,25 @@ export default function ConversationScreen() {
           ]}
         >
           <Text style={[s.messageText, { color: isUser ? colors.card : colors.text }]}>
-            {item.content}
+            {clean}
           </Text>
+
+          {proposed && (
+            applied.has(index) ? (
+              <Text style={[s.appliedText, { color: colors.accent }]}>✓ Plan actualizado</Text>
+            ) : (
+              <TouchableOpacity
+                style={[s.applyBtn, { backgroundColor: colors.accent }]}
+                onPress={() => handleApply(index, proposed)}
+                disabled={applyingIndex === index}
+                activeOpacity={0.8}
+              >
+                <Text style={s.applyBtnText}>
+                  {applyingIndex === index ? 'Aplicando...' : 'Aplicar al plan'}
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
       </View>
     );
@@ -295,6 +400,15 @@ const s = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   messageText: { fontSize: FontSize.body, lineHeight: 22 },
+  applyBtn: {
+    marginTop: Spacing.gapSm,
+    paddingVertical: Spacing.gapSm,
+    paddingHorizontal: Spacing.base,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  applyBtnText: { color: '#fff', fontSize: FontSize.base, fontWeight: FontWeight.heavy },
+  appliedText: { marginTop: Spacing.gapSm, fontSize: FontSize.base, fontWeight: FontWeight.heavy },
 
   typing: {
     flexDirection: 'row',
