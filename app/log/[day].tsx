@@ -166,13 +166,16 @@ function ExerciseRow({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function LogDayScreen() {
-  const { day } = useLocalSearchParams<{ day: string }>();
+  const { day, done } = useLocalSearchParams<{ day: string; done?: string }>();
   const colors = getColors(useColorScheme());
 
   const plan = WEEKLY_STRUCTURE.find((d) => d.day === day);
   const weekNumber = getCurrentWeek();
 
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
+  // Pre-marca los ejercicios que ya se tildaron en la pantalla Hoy
+  const [completed, setCompleted] = useState<Set<string>>(
+    () => new Set(done ? done.split(',').filter(Boolean) : []),
+  );
   const [rpe, setRpe] = useState(7);
   const [fatigue, setFatigue] = useState(5);
   const [notes, setNotes] = useState('');
@@ -198,23 +201,30 @@ export default function LogDayScreen() {
 
       const today = new Date().toISOString().split('T')[0];
 
-      // 1. Insert training session
-      const { data: session, error: sessionErr } = await supabase
+      const fields = {
+        day_name: plan.dayName,
+        week_number: weekNumber,
+        session_type: plan.sessionType,
+        duration_min: plan.duration,
+        rpe_perceived: rpe,
+        fatigue,
+        notes: notes.trim() || null,
+        completed_at: new Date().toISOString(),
+      };
+
+      // 1. Una sesión por día: actualiza si ya existe, si no inserta
+      const { data: existing } = await supabase
         .from('training_sessions')
-        .insert({
-          user_id: user.id,
-          session_date: today,
-          day_name: plan.dayName,
-          week_number: weekNumber,
-          session_type: plan.sessionType,
-          duration_min: plan.duration,
-          rpe_perceived: rpe,
-          fatigue,
-          notes: notes.trim() || null,
-          completed_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('session_date', today)
+        .maybeSingle();
+
+      const query = existing
+        ? supabase.from('training_sessions').update(fields).eq('id', existing.id)
+        : supabase.from('training_sessions').insert({ user_id: user.id, session_date: today, ...fields });
+
+      const { data: session, error: sessionErr } = await query.select().single();
 
       if (sessionErr || !session) {
         Alert.alert('Error guardando sesión', sessionErr?.message ?? 'Error desconocido');
@@ -224,8 +234,9 @@ export default function LogDayScreen() {
 
       setSavedSessionId(session.id);
 
-      // 2. Insert exercise logs
+      // 2. Reemplaza los logs de ejercicios de esta sesión
       if (plan.exercises && plan.exercises.length > 0) {
+        await supabase.from('exercise_logs').delete().eq('session_id', session.id);
         const logs = plan.exercises.map((ex) => ({
           session_id: session.id,
           exercise_id: ex.id,

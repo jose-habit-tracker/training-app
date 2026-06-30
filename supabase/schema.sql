@@ -183,6 +183,10 @@ create policy "System can update invite status"
 create index if not exists idx_training_sessions_user_date
   on public.training_sessions(user_id, session_date);
 
+-- Una sola sesión por usuario y día
+create unique index if not exists uniq_training_sessions_user_date
+  on public.training_sessions(user_id, session_date);
+
 create index if not exists idx_training_sessions_user_week
   on public.training_sessions(user_id, week_number);
 

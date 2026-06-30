@@ -13,6 +13,7 @@ import { FontSize, FontWeight } from '../../constants/typography';
 import { WEEKLY_STRUCTURE, SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan } from '../../types';
 import { Card } from '../../components/ui/Card';
+import { getCurrentWeek, getPhaseLabel } from '../../hooks/useTraining';
 
 const DAY_MAP: Record<number, string> = {
   0: 'sunday',
@@ -27,6 +28,7 @@ const DAY_MAP: Record<number, string> = {
 export default function SemanaScreen() {
   const colors = getColors(useColorScheme());
   const todayKey = DAY_MAP[new Date().getDay()];
+  const week = getCurrentWeek();
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -39,7 +41,7 @@ export default function SemanaScreen() {
         <View style={s.weekHeader}>
           <Text style={[s.weekTitle, { color: colors.text }]}>Esta semana</Text>
           <View style={[s.weekBadge, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1 }]}>
-            <Text style={[s.weekBadgeText, { color: colors.text3 }]}>Semana 1 · Fase Base</Text>
+            <Text style={[s.weekBadgeText, { color: colors.text3 }]}>Semana {week} · Fase {getPhaseLabel(week)}</Text>
           </View>
         </View>
 

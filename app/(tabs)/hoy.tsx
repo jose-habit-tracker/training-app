@@ -17,7 +17,7 @@ import { WEEKLY_STRUCTURE, SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan, ExerciseTemplate } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { useToday } from '../../hooks/useTraining';
+import { useToday, getPhaseLabel } from '../../hooks/useTraining';
 
 export default function HoyScreen() {
   const colors = getColors(useColorScheme());
@@ -39,7 +39,7 @@ export default function HoyScreen() {
 
   function handleFinishSession() {
     if (!todayPlan) return;
-    router.push(`/log/${dayKey}`);
+    router.push({ pathname: '/log/[day]', params: { day: dayKey, done: [...completed].join(',') } });
   }
 
   if (!todayPlan) {
@@ -151,7 +151,7 @@ export default function HoyScreen() {
 
         {/* ── Week badge ── */}
         <View style={[s.weekRow, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-          <Text style={[s.weekText, { color: colors.text3 }]}>Semana {weekNumber} · Fase Base</Text>
+          <Text style={[s.weekText, { color: colors.text3 }]}>Semana {weekNumber} · Fase {getPhaseLabel(weekNumber)}</Text>
         </View>
 
         {/* ── Finish / log button ── */}

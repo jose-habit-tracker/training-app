@@ -1,20 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { TrainingSession } from '../types';
-import { WEEKLY_STRUCTURE } from '../constants/trainingPlan';
+import { WEEKLY_STRUCTURE, TRAINING_PHASES } from '../constants/trainingPlan';
 
 const DAY_MAP: Record<number, string> = {
   0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
   4: 'thursday', 5: 'friday', 6: 'saturday',
 };
 
-// Plan start = Monday 2025-06-09 (Week 1)
+// Plan start = Monday 2025-06-09 (Week 1). Ajusta esta fecha para recalibrar el ciclo.
 const PLAN_START = new Date('2025-06-09T00:00:00');
+const PLAN_WEEKS = 20;
 
 export function getCurrentWeek(): number {
   const diffMs = Date.now() - PLAN_START.getTime();
   const diffDays = Math.floor(diffMs / 86_400_000);
-  return Math.max(1, Math.floor(diffDays / 7) + 1);
+  const week = Math.floor(diffDays / 7) + 1;
+  return Math.min(PLAN_WEEKS, Math.max(1, week));
+}
+
+const PHASE_LABEL: Record<keyof typeof TRAINING_PHASES, string> = {
+  base: 'Base', build: 'Build', peak: 'Peak', taper: 'Taper', race: 'Carrera', hyrox_prep: 'Hyrox Prep',
+};
+
+export function getPhaseLabel(week: number): string {
+  for (const [key, { weeks }] of Object.entries(TRAINING_PHASES)) {
+    if ((weeks as readonly number[]).includes(week)) {
+      return PHASE_LABEL[key as keyof typeof TRAINING_PHASES];
+    }
+  }
+  return 'Base';
 }
 
 export function getCurrentWeekDates(): { start: string; end: string } {
