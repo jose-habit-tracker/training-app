@@ -149,6 +149,31 @@ create policy "Users can insert own conversations"
   with check (auth.uid() = user_id);
 
 -- ─────────────────────────────────────────────
+-- TABLE: conversations (hilos del chat con el coach)
+-- ─────────────────────────────────────────────
+create table if not exists public.conversations (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  title text not null default 'Nueva conversación',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.conversations enable row level security;
+
+create policy "Users manage own conversations"
+  on public.conversations for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Agrupa cada mensaje en una conversación
+alter table public.ai_conversations
+  add column if not exists conversation_id uuid references public.conversations(id) on delete cascade;
+
+create index if not exists idx_ai_conversations_conversation
+  on public.ai_conversations(conversation_id, created_at);
+
+-- ─────────────────────────────────────────────
 -- TABLE: user_invites
 -- ─────────────────────────────────────────────
 create table if not exists public.user_invites (

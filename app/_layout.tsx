@@ -89,6 +89,14 @@ export default function RootLayout() {
                   headerBackTitle: 'Atrás',
                 }}
               />
+              <Stack.Screen
+                name="chat/[id]"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Coach IA',
+                  headerBackTitle: 'Conversaciones',
+                }}
+              />
             </Stack>
           </PlanProvider>
         </AuthProvider>
