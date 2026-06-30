@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
+  Platform,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +18,19 @@ import { FontSize, FontWeight } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { Conversation } from '../../types';
 import { Button } from '../../components/ui/Button';
+
+// Confirmación que funciona en web (window.confirm) y nativo (Alert)
+function confirmDelete(message: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(typeof window !== 'undefined' && window.confirm(message));
+  }
+  return new Promise((resolve) => {
+    Alert.alert('Eliminar conversación', message, [
+      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 export default function ChatListScreen() {
   const colors = getColors(useColorScheme());
@@ -49,6 +64,12 @@ export default function ChatListScreen() {
     setCreating(false);
     if (error || !data) return;
     router.push(`/chat/${data.id}`);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!(await confirmDelete('¿Eliminar esta conversación? No se puede deshacer.'))) return;
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    await supabase.from('conversations').delete().eq('id', id);
   }, []);
 
   return (
@@ -91,7 +112,13 @@ export default function ChatListScreen() {
                     {new Date(c.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
-                <Text style={[s.chevron, { color: colors.text3 }]}>›</Text>
+                <TouchableOpacity
+                  onPress={() => handleDelete(c.id)}
+                  hitSlop={10}
+                  style={s.deleteBtn}
+                >
+                  <Text style={[s.deleteText, { color: colors.danger }]}>Eliminar</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -123,5 +150,6 @@ const s = StyleSheet.create({
   rowMain: { flex: 1, gap: 2 },
   title: { fontSize: FontSize.body, fontWeight: FontWeight.label },
   date: { fontSize: FontSize.base },
-  chevron: { fontSize: 28, fontWeight: '300' },
+  deleteBtn: { paddingHorizontal: Spacing.gapSm, paddingVertical: Spacing.gapXs },
+  deleteText: { fontSize: FontSize.base, fontWeight: FontWeight.heavy },
 });

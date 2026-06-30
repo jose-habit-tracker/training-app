@@ -28,9 +28,21 @@ const GREETING: ChatMessage = {
   content: '¡Hola! Soy tu coach de IA. He cargado tu historial de entrenamiento reciente. ¿En qué puedo ayudarte?',
 };
 
+const DAY_MAP: Record<number, string> = {
+  0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+  4: 'thursday', 5: 'friday', 6: 'saturday',
+};
+
 // ─── Build system prompt with recent session context ──────────────────────────
 function buildSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): string {
   const weekNumber = getCurrentWeek();
+
+  const now = new Date();
+  const todayPlan = days.find((d) => d.day === DAY_MAP[now.getDay()]);
+  const todayStr = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const todaySession = todayPlan
+    ? `${todayPlan.title} (${SESSION_LABELS[todayPlan.sessionType] ?? todayPlan.sessionType}, ${todayPlan.duration} min)`
+    : 'sin sesión definida';
 
   const sessionSummary = recentSessions.length > 0
     ? recentSessions.map((s) => {
@@ -51,6 +63,9 @@ function buildSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): 
   return `Eres el coach personal de un atleta de 23 años que se prepara para una media maratón y Hyrox posteriormente.
 El atleta entrena 7 días a la semana: running, natación y gimnasio (énfasis Hyrox).
 Estás en la semana ${weekNumber} del ciclo de entrenamiento.
+
+HOY ES: ${todayStr}. La sesión programada para hoy es: ${todaySession}.
+No deduzcas el día por tu cuenta; usa siempre esta fecha como "hoy".
 
 ÚLTIMAS SESIONES REGISTRADAS:
 ${sessionSummary}
