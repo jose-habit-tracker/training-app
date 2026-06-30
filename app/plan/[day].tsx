@@ -13,7 +13,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { getColors, SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { SESSION_LABELS } from '../../constants/trainingPlan';
+import { SESSION_LABELS, SESSION_DEFAULTS } from '../../constants/trainingPlan';
 import { DayPlan, ExerciseTemplate, SessionType } from '../../types';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -32,6 +32,25 @@ export default function EditDayScreen() {
 
   const setField = useCallback(<K extends keyof DayPlan>(key: K, value: DayPlan[K]) => {
     setForm((f) => (f ? { ...f, [key]: value } : f));
+  }, []);
+
+  // Al elegir un tipo, carga su plantilla por defecto (título, campos y ejercicios)
+  const applyType = useCallback((type: SessionType) => {
+    setForm((f) => {
+      if (!f || f.sessionType === type) return f;
+      const def = SESSION_DEFAULTS[type];
+      return {
+        ...f,
+        sessionType: type,
+        title: def.title,
+        duration: def.duration,
+        description: def.description,
+        warmup: def.warmup,
+        cooldown: def.cooldown,
+        notes: def.notes,
+        exercises: def.exercises.map((ex, i) => ({ ...ex, id: `${f.day}-${Date.now()}-${i}` })),
+      };
+    });
   }, []);
 
   const updateExercise = useCallback((id: string, patch: Partial<ExerciseTemplate>) => {
@@ -93,6 +112,7 @@ export default function EditDayScreen() {
         {/* Tipo de sesión */}
         <View>
           <Text style={[s.label, { color: colors.text3 }]}>TIPO DE SESIÓN</Text>
+          <Text style={[s.subhint, { color: colors.text3 }]}>Al cambiar el tipo se cargan sus ejercicios por defecto.</Text>
           <View style={s.typeRow}>
             {SESSION_TYPES.map((t) => {
               const active = t === form.sessionType;
@@ -101,7 +121,7 @@ export default function EditDayScreen() {
                 <TouchableOpacity
                   key={t}
                   style={[s.typeChip, { backgroundColor: active ? c : colors.glassBg, borderColor: active ? c : colors.border }]}
-                  onPress={() => setField('sessionType', t)}
+                  onPress={() => applyType(t)}
                   activeOpacity={0.8}
                 >
                   <Text style={[s.typeChipText, { color: active ? '#fff' : colors.text3 }]}>{SESSION_LABELS[t]}</Text>
@@ -188,6 +208,7 @@ const s = StyleSheet.create({
 
   dayName: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy, letterSpacing: 0.65 },
   label: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy, letterSpacing: 0.65, marginBottom: Spacing.gapXs },
+  subhint: { fontSize: FontSize.base, marginBottom: Spacing.gapSm, lineHeight: 16 },
 
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gapSm },
   typeChip: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.gapXs + 2, borderRadius: Radius.pill, borderWidth: 1 },

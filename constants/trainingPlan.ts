@@ -1,4 +1,4 @@
-import { WeekPlan, DayPlan } from '../types';
+import { WeekPlan, DayPlan, ExerciseTemplate, SessionType } from '../types';
 
 export const WEEKLY_STRUCTURE: DayPlan[] = [
   {
@@ -307,6 +307,155 @@ export const SESSION_COLORS: Record<string, string> = {
   hyrox_simulation: '#FF6B35',
   rest: '#48484A',
   active_recovery: '#32D74B',
+};
+
+// Plantilla por defecto de cada tipo de sesión. Al cambiar el tipo en el editor
+// se cargan estos campos y ejercicios para que el contenido sea coherente.
+export type SessionDefault = {
+  title: string;
+  duration: number;
+  description: string;
+  warmup?: string;
+  cooldown?: string;
+  notes?: string;
+  exercises: Omit<ExerciseTemplate, 'id'>[];
+};
+
+export const SESSION_DEFAULTS: Record<SessionType, SessionDefault> = {
+  running_easy: {
+    title: 'Carrera Suave',
+    duration: 40,
+    description: 'Rodaje suave de recuperación en z1-z2',
+    warmup: '5 min andando',
+    cooldown: '5 min andando + estiramientos',
+    exercises: [
+      { name: 'Calentamiento', duration: '5 min', notes: 'Andar → trote suave' },
+      { name: 'Rodaje suave', duration: '30 min', notes: 'z1-z2, ritmo cómodo y conversado' },
+      { name: 'Vuelta a la calma', duration: '5 min', notes: 'Trote muy suave + estiramientos' },
+    ],
+  },
+  running_threshold: {
+    title: 'Running Umbral',
+    duration: 60,
+    description: 'Rodaje a ritmo de umbral aeróbico con series de calidad',
+    warmup: '15 min trote suave + activación dinámica',
+    cooldown: '10 min trote suave + estiramientos',
+    notes: 'RPE objetivo 7/10. Si hay fatiga acumulada, bajar a ritmo fácil.',
+    exercises: [
+      { name: 'Calentamiento', duration: '15 min', notes: 'Trote suave z1-z2' },
+      { name: 'Series de umbral', reps: '4x8 min', rest: '2 min entre series', notes: 'Ritmo z3-z4, esfuerzo controlado 7/10' },
+      { name: 'Enfriamiento', duration: '10 min', notes: 'Trote suave z1' },
+    ],
+  },
+  running_long: {
+    title: 'Tirada Larga',
+    duration: 100,
+    description: 'Rodaje largo de resistencia aeróbica base para media maratón',
+    warmup: '10 min muy suave',
+    cooldown: '10 min andando + estiramientos',
+    notes: 'Hidratación cada 20-25 min. Geles a partir de 60 min. Nunca superar z3.',
+    exercises: [
+      { name: 'Calentamiento', duration: '10 min', notes: 'Andar → trote muy suave' },
+      { name: 'Rodaje largo', duration: '75-90 min', notes: 'z2 constante. Conversación posible. 5:30-6:00 min/km aprox.' },
+      { name: 'Vuelta a la calma', duration: '10 min', notes: 'Reducir ritmo gradualmente. Andar último km.' },
+    ],
+  },
+  running_intervals: {
+    title: 'Intervalos VO2max',
+    duration: 55,
+    description: 'Series cortas a alta intensidad para desarrollar VO2max',
+    warmup: '15 min progresivo',
+    cooldown: '10 min suave',
+    notes: 'Si las series salen muy fáciles, añadir 1-2 más. Si hay fatiga, reducir a 4x3.',
+    exercises: [
+      { name: 'Calentamiento progresivo', duration: '15 min', notes: 'z1→z2→z3, últimos 2 min con 4 aceleraciones de 20s' },
+      { name: 'Series VO2max', reps: '6x3 min', rest: '3 min trote suave', notes: 'Ritmo 5km race pace. z5. Esfuerzo 9/10' },
+      { name: 'Enfriamiento', duration: '10 min', notes: 'Trote muy suave z1' },
+    ],
+  },
+  swimming: {
+    title: 'Natación Técnica',
+    duration: 45,
+    description: 'Sesión de natación enfocada en técnica y resistencia aeróbica',
+    warmup: '200m crol suave',
+    cooldown: '100m espalda relajada',
+    notes: 'Foco en posición horizontal y entrada de mano. Sin forzar ritmo.',
+    exercises: [
+      { name: 'Calentamiento', distance: '200m', notes: 'Crol suave, foco en respiración' },
+      { name: 'Drill técnico', reps: '6x50m', rest: '20s', notes: 'Catch-up drill, dedos al cielo' },
+      { name: 'Bloque principal', reps: '8x100m', rest: '30s', notes: 'Ritmo aeróbico constante, z2-z3' },
+      { name: 'Vuelta a la calma', distance: '100m', notes: 'Espalda relajada' },
+    ],
+  },
+  gym_strength: {
+    title: 'Fuerza + Movilidad',
+    duration: 70,
+    description: 'Sesión de gimnasio: fuerza funcional para running y Hyrox',
+    warmup: '10 min cardio suave + activación articular',
+    cooldown: 'Foam roller + estiramientos 10 min',
+    notes: 'Técnica sobre carga. Si hay agujetas, reducir intensidad.',
+    exercises: [
+      { name: 'Sentadilla búlgara', sets: 4, reps: '8 por lado', load: '20-30 kg mancuernas', rest: '90s' },
+      { name: 'Peso muerto rumano', sets: 4, reps: '10', load: '60-80% 1RM', rest: '90s' },
+      { name: 'Hip thrust', sets: 3, reps: '12', load: 'Moderado', rest: '75s' },
+      { name: 'Step-ups con carga', sets: 3, reps: '10 por lado', load: '15-20 kg mancuernas', rest: '60s' },
+      { name: 'Core: Pallof press', sets: 3, reps: '12 por lado', rest: '45s' },
+      { name: 'Core: Dead bug', sets: 3, reps: '10 por lado', rest: '45s' },
+    ],
+  },
+  gym_hyrox: {
+    title: 'Hyrox Circuit',
+    duration: 65,
+    description: 'Entrenamiento funcional Hyrox: ski erg, sled, wall balls, burpees',
+    warmup: '10 min cardio + movilidad',
+    cooldown: 'Estiramientos globales 10 min',
+    notes: 'Registrar tiempos para seguimiento de progresión.',
+    exercises: [
+      { name: 'Ski Erg', distance: '1000m', notes: 'Ritmo constante, técnica correcta. Objetivo <4:30' },
+      { name: 'Sled Push', distance: '50m x4', load: '60-80 kg', rest: '90s', notes: 'Postura baja, empuje desde piernas' },
+      { name: 'Burpee Broad Jump', reps: '20', notes: 'Explosivo, buen salto horizontal' },
+      { name: 'Wall Balls', reps: '50', load: '6 kg', notes: 'Target a 9 pies. Sin parar si es posible' },
+      { name: 'Remo ergómetro', distance: '500m x3', rest: '2 min', notes: 'Potencia + técnica, objetivo <2:00/500m' },
+      { name: 'Farmer Carry', distance: '100m x3', load: '24 kg por mano', rest: '90s', notes: 'Hombros atrás, paso firme' },
+    ],
+  },
+  hyrox_simulation: {
+    title: 'Simulación Hyrox',
+    duration: 75,
+    description: 'Simulación de prueba: 8 estaciones con 1 km de carrera entre cada una',
+    warmup: '10 min cardio + movilidad específica',
+    cooldown: 'Estiramientos 10 min',
+    notes: 'Cronometra cada estación. Mantén ritmo de carrera sostenible entre estaciones.',
+    exercises: [
+      { name: 'Carrera entre estaciones', distance: '1000m x8', notes: 'Antes de cada estación. Ritmo sostenible' },
+      { name: 'Ski Erg', distance: '1000m' },
+      { name: 'Sled Push', distance: '50m', load: '125 kg' },
+      { name: 'Sled Pull', distance: '50m', load: '75 kg' },
+      { name: 'Burpee Broad Jump', distance: '80m' },
+      { name: 'Row', distance: '1000m' },
+      { name: 'Farmers Carry', distance: '200m', load: '24 kg por mano' },
+      { name: 'Sandbag Lunges', distance: '100m', load: '20 kg' },
+      { name: 'Wall Balls', reps: '100', load: '6 kg' },
+    ],
+  },
+  rest: {
+    title: 'Descanso',
+    duration: 0,
+    description: 'Día de descanso total',
+    notes: 'Descanso completo. Prioriza sueño e hidratación.',
+    exercises: [],
+  },
+  active_recovery: {
+    title: 'Recuperación Activa',
+    duration: 30,
+    description: 'Día de recuperación: movilidad, natación suave o paseo',
+    notes: 'Descanso mental también. Evitar pensar en entrenamientos.',
+    exercises: [
+      { name: 'Foam roller', duration: '10 min', notes: 'Cuádriceps, isquios, gemelos, IT band' },
+      { name: 'Movilidad hip', reps: '5 por lado', notes: 'World greatest stretch, 90/90, pigeon pose' },
+      { name: 'Yoga / respiración', duration: '15 min', notes: 'Opcional. Foco en sistema nervioso parasimpático' },
+    ],
+  },
 };
 
 export const SESSION_LABELS: Record<string, string> = {
