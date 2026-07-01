@@ -16,6 +16,9 @@ import { Spacing } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { Turnstile } from '../../components/Turnstile';
+
+const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -25,7 +28,10 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState('');
   const colors = getColors(useColorScheme());
+
+  const captchaRequired = Platform.OS === 'web' && !!TURNSTILE_SITE_KEY;
 
   async function handleRegister() {
     setErrorMsg(null);
@@ -43,6 +49,10 @@ export default function RegisterScreen() {
       setErrorMsg('La contraseña debe tener al menos 6 caracteres');
       return;
     }
+    if (captchaRequired && !captchaToken) {
+      setErrorMsg('Verificación de seguridad en curso, espera un momento.');
+      return;
+    }
 
     setLoading(true);
 
@@ -51,7 +61,7 @@ export default function RegisterScreen() {
       const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
-        options: { data: { full_name: name.trim() } },
+        options: { data: { full_name: name.trim() }, captchaToken: captchaToken || undefined },
       });
 
       if (error) {
@@ -115,6 +125,10 @@ export default function RegisterScreen() {
             secureTextEntry
             placeholder="••••••"
           />
+
+          {captchaRequired && (
+            <Turnstile siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
+          )}
 
           <Button
             label="Registrarse"
