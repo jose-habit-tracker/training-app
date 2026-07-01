@@ -1,4 +1,3 @@
-import { ColorSchemeName } from 'react-native';
 
 // ─── Light theme ─────────────────────────────────────────────────────────────
 const light = {
@@ -58,6 +57,34 @@ const dark = {
   yellow: '#ffd60a',
 } as const;
 
+// ─── Nude theme ───────────────────────────────────────────────────────────────
+const nude = {
+  background: '#f6efe3',
+  card: '#fdf9f2',
+  accent: '#b97a55',
+  accentSoft: '#eadfce',
+  danger: '#c0392b',
+  dangerSoft: 'rgba(192,57,43,0.12)',
+  text: '#3d342a',
+  text2: '#5c4f40',
+  text3: '#9a8c78',
+  border: 'rgba(90,70,40,0.10)',
+  glassBg: 'rgba(253,249,242,0.60)',
+  glassBorder: 'rgba(90,70,40,0.10)',
+  shadow: 'rgba(90,70,40,0.08)',
+  ripple: 'rgba(90,70,40,0.12)',
+  catTrabajo: '#4A6FA5',
+  catSalud: '#4E8C6A',
+  catEstudio: '#7258A0',
+  catComida: '#9A7240',
+  catPersonal: '#A05860',
+  orange: '#ff9f0a',
+  blue: '#0a84ff',
+  purple: '#bf5af2',
+  teal: '#5ac8fa',
+  yellow: '#ffd60a',
+} as const;
+
 // Use a structural interface so light/dark don't conflict on literal string types
 export interface ThemeColors {
   background: string;
@@ -86,10 +113,12 @@ export interface ThemeColors {
   yellow: string;
 }
 
-export const themes = { light, dark } as const;
+export type ThemeName = 'light' | 'dark' | 'nude';
 
-export function getColors(scheme: ColorSchemeName): ThemeColors {
-  return scheme === 'dark' ? dark : light;
+export const themes = { light, dark, nude } as const;
+
+export function getColors(name: ThemeName): ThemeColors {
+  return themes[name];
 }
 
 // Elevation tokens — Android-first, cross-platform.
