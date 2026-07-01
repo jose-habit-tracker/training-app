@@ -26,9 +26,16 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
   const colors = getColors(useColorScheme());
 
   const captchaRequired = Platform.OS === 'web' && !!TURNSTILE_SITE_KEY;
+
+  // Token de un solo uso: tras cada intento remontamos el widget para uno nuevo.
+  function resetCaptcha() {
+    setCaptchaToken('');
+    setCaptchaKey((k) => k + 1);
+  }
 
   async function handleLogin() {
     setErrorMsg(null);
@@ -54,6 +61,7 @@ export default function LoginScreen() {
     if (error) {
       setErrorMsg(error.message);
       if (Platform.OS !== 'web') Alert.alert('Error de acceso', error.message);
+      resetCaptcha();
     }
   }
 
@@ -87,7 +95,7 @@ export default function LoginScreen() {
           />
 
           {captchaRequired && (
-            <Turnstile siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
+            <Turnstile key={captchaKey} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
           )}
 
           <Button

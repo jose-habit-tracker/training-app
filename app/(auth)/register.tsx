@@ -29,9 +29,17 @@ export default function RegisterScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
   const colors = getColors(useColorScheme());
 
   const captchaRequired = Platform.OS === 'web' && !!TURNSTILE_SITE_KEY;
+
+  // Los tokens de Turnstile son de un solo uso: tras un intento hay que pedir
+  // uno nuevo remontando el widget, o el siguiente envío da timeout-or-duplicate.
+  function resetCaptcha() {
+    setCaptchaToken('');
+    setCaptchaKey((k) => k + 1);
+  }
 
   async function handleRegister() {
     setErrorMsg(null);
@@ -67,6 +75,7 @@ export default function RegisterScreen() {
       if (error) {
         setErrorMsg(error.message);
         if (Platform.OS !== 'web') Alert.alert('Error', error.message);
+        resetCaptcha();
         setLoading(false);
         return;
       }
@@ -78,6 +87,7 @@ export default function RegisterScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error inesperado';
       setErrorMsg(`Error inesperado: ${msg}`);
+      resetCaptcha();
       setLoading(false);
     }
   }
@@ -127,7 +137,7 @@ export default function RegisterScreen() {
           />
 
           {captchaRequired && (
-            <Turnstile siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
+            <Turnstile key={captchaKey} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
           )}
 
           <Button
