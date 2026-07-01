@@ -41,3 +41,5 @@ yarn-error.*
 
 # build output (Vercel lo genera en cada deploy)
 dist/
+.vercel
+.env*
