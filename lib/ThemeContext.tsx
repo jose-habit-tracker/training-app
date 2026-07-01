@@ -18,20 +18,24 @@ const ThemeModeContext = createContext<ThemeModeValue>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
-  // Primer render: deriva del sistema para evitar flash de tema incorrecto.
+  // Valor inicial: mejor estimación desde el esquema del sistema (claro/oscuro).
+  // El tema guardado (incl. nude o una elección contraria al sistema) se aplica
+  // al resolver el almacenamiento; puede haber un breve reajuste en arranque en frío.
   const [theme, setThemeState] = useState<ThemeName>(system === 'light' ? 'light' : 'dark');
 
   useEffect(() => {
-    storage.getItem(STORAGE_KEY).then((saved) => {
-      if (saved && (VALID as string[]).includes(saved)) {
-        setThemeState(saved as ThemeName);
-      }
-    });
+    storage.getItem(STORAGE_KEY)
+      .then((saved) => {
+        if (saved && (VALID as string[]).includes(saved)) {
+          setThemeState(saved as ThemeName);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const setTheme = (t: ThemeName) => {
     setThemeState(t);
-    storage.setItem(STORAGE_KEY, t);
+    storage.setItem(STORAGE_KEY, t).catch(() => {});
   };
 
   return (

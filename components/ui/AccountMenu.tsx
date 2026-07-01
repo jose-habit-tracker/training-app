@@ -92,7 +92,7 @@ export function AccountMenu() {
                         active && { backgroundColor: colors.accent, borderColor: colors.accent },
                       ]}
                     >
-                      <Text style={[s.segText, { color: active ? '#fff' : colors.text2 }]}>{opt.label}</Text>
+                      <Text style={[s.segText, { color: active ? (theme === 'nude' ? '#fff' : '#04210f') : colors.text2 }]}>{opt.label}</Text>
                     </TouchableOpacity>
                   );
                 })}
