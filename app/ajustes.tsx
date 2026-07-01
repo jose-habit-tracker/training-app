@@ -8,16 +8,15 @@ import {
   Linking,
   Platform,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { getColors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/spacing';
 import { FontSize, FontWeight } from '../constants/typography';
 import { supabase } from '../lib/supabase';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { useTheme } from '../hooks/useTheme';
 
 const GROQ_KEYS_URL = 'https://console.groq.com/keys';
 
@@ -30,7 +29,7 @@ function notify(title: string, message: string) {
 }
 
 export default function AjustesScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const [key, setKey] = useState('');
   const [savedMask, setSavedMask] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

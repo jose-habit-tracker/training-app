@@ -8,16 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { getColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { Conversation } from '../../types';
 import { Button } from '../../components/ui/Button';
+import { useTheme } from '../../hooks/useTheme';
 
 // Confirmación que funciona en web (window.confirm) y nativo (Alert)
 function confirmDelete(message: string): Promise<boolean> {
@@ -33,7 +32,7 @@ function confirmDelete(message: string): Promise<boolean> {
 }
 
 export default function ChatListScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

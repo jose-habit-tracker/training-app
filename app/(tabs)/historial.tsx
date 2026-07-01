@@ -6,17 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Text as SvgText } from 'react-native-svg';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { TrainingSession, SessionType } from '../../types';
 import { StatGrid, StatCard } from '../../components/ui/Card';
 import { useSessions, useWeekSessions } from '../../hooks/useTraining';
+import { useTheme } from '../../hooks/useTheme';
 
 // ─── Filter types ─────────────────────────────────────────────────────────────
 type Filter = 'all' | 'running' | 'gym' | 'swimming' | 'hyrox';
@@ -93,7 +93,7 @@ function SessionCard({
   colors,
 }: {
   session: TrainingSession;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
   const [expanded, setExpanded] = useState(false);
   const barColor = SessionColors[session.session_type] ?? colors.accent;
@@ -167,7 +167,7 @@ function Chip({ label, color, bg }: { label: string; color: string; bg: string }
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function HistorialScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const [activeFilter, setActiveFilter] = useState<Filter>('all');
 
   const { sessions, loading, error, refetch } = useSessions(40);

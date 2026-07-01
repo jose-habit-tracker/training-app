@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
@@ -18,10 +17,11 @@ import { DayPlan, ExerciseTemplate } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useToday, getPhaseLabel } from '../../hooks/useTraining';
+import { useTheme } from '../../hooks/useTheme';
 import { usePlan } from '../../lib/PlanContext';
 
 export default function HoyScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const { weekNumber, dayKey, loggedSession, loadingLog } = useToday();
   const { days } = usePlan();
   const todayPlan = days.find((d) => d.day === dayKey) ?? null;
@@ -181,7 +181,7 @@ export default function HoyScreen() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function MetaStat({ value, label, color }: { value: string; label: string; color: string }) {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   return (
     <View style={s.metaItem}>
       <Text style={[s.metaValue, { color }]}>{value}</Text>
@@ -197,7 +197,7 @@ function Section({
 }: {
   title: string;
   children: React.ReactNode;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
   return (
     <View style={s.section}>
@@ -217,7 +217,7 @@ function ExerciseCard({
   exercise: ExerciseTemplate;
   done: boolean;
   accentColor: string;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
   onToggle: () => void;
 }) {
   return (

@@ -4,11 +4,10 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
@@ -16,6 +15,7 @@ import { DayPlan } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek, getPhaseLabel } from '../../hooks/useTraining';
+import { useTheme } from '../../hooks/useTheme';
 import { usePlan } from '../../lib/PlanContext';
 
 const DAY_MAP: Record<number, string> = {
@@ -29,7 +29,7 @@ const DAY_MAP: Record<number, string> = {
 };
 
 export default function SemanaScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const todayKey = DAY_MAP[new Date().getDay()];
   const week = getCurrentWeek();
   const { days } = usePlan();
@@ -72,7 +72,7 @@ function DayCard({
 }: {
   day: DayPlan;
   isToday: boolean;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
   const accentColor = SessionColors[day.sessionType] ?? colors.accent;
 
