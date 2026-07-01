@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const [captchaKey, setCaptchaKey] = useState(0);
   const colors = getColors(useColorScheme());
 
-  const captchaRequired = Platform.OS === 'web' && !!TURNSTILE_SITE_KEY;
+  const captchaRequired = !!TURNSTILE_SITE_KEY;
 
   // Token de un solo uso: tras cada intento remontamos el widget para uno nuevo.
   function resetCaptcha() {

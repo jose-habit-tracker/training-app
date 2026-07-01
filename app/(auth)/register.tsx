@@ -32,7 +32,7 @@ export default function RegisterScreen() {
   const [captchaKey, setCaptchaKey] = useState(0);
   const colors = getColors(useColorScheme());
 
-  const captchaRequired = Platform.OS === 'web' && !!TURNSTILE_SITE_KEY;
+  const captchaRequired = !!TURNSTILE_SITE_KEY;
 
   // Los tokens de Turnstile son de un solo uso: tras un intento hay que pedir
   // uno nuevo remontando el widget, o el siguiente envío da timeout-or-duplicate.
