@@ -1,8 +1,16 @@
 import { Platform } from 'react-native';
 import { ChatMessage } from '../types';
+import { supabase } from './supabase';
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+// En web el proxy es relativo; en nativo necesitamos la URL absoluta del deploy.
+function chatEndpoint(): string {
+  if (Platform.OS === 'web') return '/api/chat';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (!base) throw new Error('EXPO_PUBLIC_API_BASE_URL no configurada');
+  return `${base.replace(/\/$/, '')}/api/chat`;
+}
 
 export async function askGroq(
   messages: ChatMessage[],
@@ -19,22 +27,22 @@ export async function askGroq(
     temperature: 0.7,
   });
 
-  let url: string;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // La key de Groq nunca sale al cliente: el proxy la aplica tras validar la sesión.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Debes iniciar sesión para usar el coach.');
 
-  if (Platform.OS === 'web') {
-    url = '/api/chat';
-  } else {
-    const groqKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-    if (!groqKey) throw new Error('GROQ_API_KEY not set');
-    url = GROQ_API_URL;
-    headers.Authorization = `Bearer ${groqKey}`;
-  }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  };
 
-  const response = await fetch(url, { method: 'POST', headers, body });
+  const response = await fetch(chatEndpoint(), { method: 'POST', headers, body });
 
   if (!response.ok) {
     const error = await response.text();
+    if (error.includes('NO_GROQ_KEY')) {
+      throw new Error('Configura tu API key de Groq en Ajustes para usar el coach.');
+    }
     throw new Error(`Groq API error ${response.status}: ${error}`);
   }
 

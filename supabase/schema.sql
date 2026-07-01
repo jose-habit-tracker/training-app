@@ -220,3 +220,74 @@ create index if not exists idx_ai_conversations_user
 
 create index if not exists idx_exercise_logs_session
   on public.exercise_logs(session_id);
+
+-- ─────────────────────────────────────────────
+-- PROFILES: captura nombre + correo de cada usuario que se registra.
+-- Registro abierto (sin invitaciones ni tope): el link de Vercel basta.
+-- ─────────────────────────────────────────────
+
+-- Limpia el enforcement de invitaciones por si se llegó a ejecutar.
+drop trigger if exists enforce_invite_only_before_insert on auth.users;
+drop function if exists public.enforce_invite_only();
+drop function if exists public.has_invite(text);
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  full_name text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (auth.uid() = id);
+
+-- La cuenta admin (por email en el JWT) puede ver TODOS los perfiles.
+-- Las policies se combinan con OR, así que esto se suma al acceso propio.
+create policy "Admin can view all profiles"
+  on public.profiles for select
+  using ((auth.jwt() ->> 'email') = 'joseracksprueba@gmail.com');
+
+-- Al crearse un usuario, guarda su perfil con el nombre del formulario.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, full_name)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ─────────────────────────────────────────────
+-- BYOK: cada usuario guarda su propia API key de Groq.
+-- El proxy /api/chat la usa para SUS llamadas → tu key deja de consumirse.
+-- RLS: cada quien solo puede ver/escribir su propia key.
+-- ─────────────────────────────────────────────
+create table if not exists public.user_ai_keys (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  groq_key text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_ai_keys enable row level security;
+
+create policy "Users manage own ai key"
+  on public.user_ai_keys for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

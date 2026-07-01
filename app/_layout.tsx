@@ -97,6 +97,14 @@ export default function RootLayout() {
                   headerBackTitle: 'Conversaciones',
                 }}
               />
+              <Stack.Screen
+                name="ajustes"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Ajustes',
+                  headerBackTitle: 'Atrás',
+                }}
+              />
             </Stack>
           </PlanProvider>
         </AuthProvider>

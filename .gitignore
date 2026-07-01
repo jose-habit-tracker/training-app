@@ -38,3 +38,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# build output (Vercel lo genera en cada deploy)
+dist/

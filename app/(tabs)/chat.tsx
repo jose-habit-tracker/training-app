@@ -83,6 +83,10 @@ export default function ChatListScreen() {
           style={s.newBtn}
         />
 
+        <TouchableOpacity onPress={() => router.push('/ajustes')} activeOpacity={0.7} style={s.settingsLink}>
+          <Text style={[s.settingsText, { color: colors.accent }]}>⚙︎ Mi API key de Groq</Text>
+        </TouchableOpacity>
+
         {loading ? (
           <View style={s.center}>
             <ActivityIndicator color={colors.accent} />
@@ -132,6 +136,8 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, padding: Spacing.lg, gap: Spacing.lg },
   newBtn: {},
+  settingsLink: { alignSelf: 'center', paddingVertical: Spacing.gapXs },
+  settingsText: { fontSize: FontSize.md, fontWeight: FontWeight.heavy },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.gapSm },
   emptyTitle: { fontSize: FontSize.body, fontWeight: FontWeight.black },
   emptyText: { fontSize: FontSize.md, textAlign: 'center', paddingHorizontal: Spacing.xxl },

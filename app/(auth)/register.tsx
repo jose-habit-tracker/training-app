@@ -18,6 +18,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
 export default function RegisterScreen() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -31,7 +32,7 @@ export default function RegisterScreen() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!email || !password || !confirm) {
+    if (!name.trim() || !email || !password || !confirm) {
       setErrorMsg('Completa todos los campos');
       return;
     }
@@ -48,7 +49,11 @@ export default function RegisterScreen() {
 
     try {
       const normalizedEmail = email.toLowerCase().trim();
-      const { error } = await supabase.auth.signUp({ email: normalizedEmail, password });
+      const { error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: { data: { full_name: name.trim() } },
+      });
 
       if (error) {
         console.error('[Register] error:', error.message);
@@ -83,6 +88,14 @@ export default function RegisterScreen() {
         </Text>
 
         <View style={styles.form}>
+          <Input
+            label="Nombre"
+            value={name}
+            onChangeText={(v) => { setName(v); setErrorMsg(null); }}
+            autoCapitalize="words"
+            autoCorrect={false}
+            placeholder="Tu nombre"
+          />
           <Input
             label="Email"
             value={email}
