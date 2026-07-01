@@ -5,6 +5,8 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
 import { PlanProvider } from '../lib/PlanContext';
+import { ThemeProvider } from '../lib/ThemeContext';
+import { useTheme } from '../hooks/useTheme';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -53,15 +55,21 @@ function NavigationGuard() {
   return null;
 }
 
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
+
 export default function RootLayout() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <PlanProvider>
-            <StatusBar style="auto" />
-            <NavigationGuard />
-            <Stack screenOptions={{ headerShown: false }}>
+          <ThemeProvider>
+            <PlanProvider>
+              <ThemedStatusBar />
+              <NavigationGuard />
+              <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
@@ -105,8 +113,9 @@ export default function RootLayout() {
                   headerBackTitle: 'Atrás',
                 }}
               />
-            </Stack>
-          </PlanProvider>
+              </Stack>
+            </PlanProvider>
+          </ThemeProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

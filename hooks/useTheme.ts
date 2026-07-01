@@ -1,7 +1,7 @@
-import { useColorScheme } from 'react-native';
 import { getColors, ThemeColors, Shadows } from '../constants/colors';
 import { Spacing, Radius } from '../constants/spacing';
 import { FontSize, FontWeight, TextStyles } from '../constants/typography';
+import { useThemeMode } from '../lib/ThemeContext';
 
 export interface Theme {
   colors: ThemeColors;
@@ -15,15 +15,15 @@ export interface Theme {
 }
 
 export function useTheme(): Theme {
-  const scheme = useColorScheme();
+  const { theme } = useThemeMode();
   return {
-    colors: getColors(scheme),
+    colors: getColors(theme),
     shadows: Shadows,
     spacing: Spacing,
     radius: Radius,
     fontSize: FontSize,
     fontWeight: FontWeight,
     text: TextStyles,
-    isDark: scheme === 'dark',
+    isDark: theme === 'dark',
   };
 }
