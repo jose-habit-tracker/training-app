@@ -127,30 +127,12 @@ create policy "Users can delete exercise logs via session"
   );
 
 -- ─────────────────────────────────────────────
--- TABLE: ai_conversations
+-- CHAT (dos tablas relacionadas 1:N)
+--   conversations    = hilos del chat con el coach
+--   ai_conversations = mensajes dentro de cada hilo
 -- ─────────────────────────────────────────────
-create table if not exists public.ai_conversations (
-  id uuid primary key default uuid_generate_v4(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  role text not null check (role in ('user', 'assistant')),
-  content text not null,
-  context_snapshot jsonb,
-  created_at timestamptz not null default now()
-);
 
-alter table public.ai_conversations enable row level security;
-
-create policy "Users can view own conversations"
-  on public.ai_conversations for select
-  using (auth.uid() = user_id);
-
-create policy "Users can insert own conversations"
-  on public.ai_conversations for insert
-  with check (auth.uid() = user_id);
-
--- ─────────────────────────────────────────────
--- TABLE: conversations (hilos del chat con el coach)
--- ─────────────────────────────────────────────
+-- Hilos
 create table if not exists public.conversations (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references auth.users(id) on delete cascade not null,
@@ -161,14 +143,45 @@ create table if not exists public.conversations (
 
 alter table public.conversations enable row level security;
 
+drop policy if exists "Users manage own conversations" on public.conversations;
 create policy "Users manage own conversations"
   on public.conversations for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Agrupa cada mensaje en una conversación
+-- Mensajes (cada uno pertenece a un hilo). Al borrar un hilo, se borran en cascada.
+create table if not exists public.ai_conversations (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  conversation_id uuid references public.conversations(id) on delete cascade,
+  role text not null check (role in ('user', 'assistant')),
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Migración idempotente para BDs existentes.
 alter table public.ai_conversations
   add column if not exists conversation_id uuid references public.conversations(id) on delete cascade;
+alter table public.ai_conversations
+  drop column if exists context_snapshot;
+
+alter table public.ai_conversations enable row level security;
+
+-- Mensajes: append-only (sin UPDATE) + lectura/borrado propios.
+drop policy if exists "Users can view own conversations" on public.ai_conversations;
+drop policy if exists "Users can insert own conversations" on public.ai_conversations;
+drop policy if exists "Users can view own messages" on public.ai_conversations;
+drop policy if exists "Users can insert own messages" on public.ai_conversations;
+drop policy if exists "Users can delete own messages" on public.ai_conversations;
+create policy "Users can view own messages"
+  on public.ai_conversations for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own messages"
+  on public.ai_conversations for insert
+  with check (auth.uid() = user_id);
+create policy "Users can delete own messages"
+  on public.ai_conversations for delete
+  using (auth.uid() = user_id);
 
 create index if not exists idx_ai_conversations_conversation
   on public.ai_conversations(conversation_id, created_at);
