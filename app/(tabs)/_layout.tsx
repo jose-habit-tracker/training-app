@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ColorValue, useColorScheme } from 'react-native';
-import { getColors } from '../../constants/colors';
+import { ColorValue } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { AccountMenu } from '../../components/ui/AccountMenu';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -10,7 +11,7 @@ function TabIcon({ name, color }: { name: IoniconName; color: ColorValue }) {
 }
 
 export default function TabsLayout() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
 
   return (
     <Tabs
@@ -34,6 +35,7 @@ export default function TabsLayout() {
           fontWeight: '700',
         },
         headerShadowVisible: false,
+        headerRight: () => <AccountMenu />,
       }}
     >
       <Tabs.Screen
