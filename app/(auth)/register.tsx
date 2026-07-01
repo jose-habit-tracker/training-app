@@ -28,7 +28,6 @@ export default function RegisterScreen() {
   const colors = getColors(useColorScheme());
 
   async function handleRegister() {
-    console.log('[Register] submit', { email, platform: Platform.OS });
     setErrorMsg(null);
     setSuccessMsg(null);
 
@@ -56,21 +55,18 @@ export default function RegisterScreen() {
       });
 
       if (error) {
-        console.error('[Register] error:', error.message);
         setErrorMsg(error.message);
         if (Platform.OS !== 'web') Alert.alert('Error', error.message);
         setLoading(false);
         return;
       }
 
-      console.log('[Register] success');
       setSuccessMsg('Cuenta creada. Ya puedes iniciar sesión.');
       setLoading(false);
 
       setTimeout(() => router.replace('/(auth)/login'), 2000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error inesperado';
-      console.error('[Register] unexpected error:', err);
       setErrorMsg(`Error inesperado: ${msg}`);
       setLoading(false);
     }

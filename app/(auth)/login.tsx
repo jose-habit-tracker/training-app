@@ -25,7 +25,6 @@ export default function LoginScreen() {
   const colors = getColors(useColorScheme());
 
   async function handleLogin() {
-    console.log('[Login] submit triggered', { email });
     setErrorMsg(null);
 
     if (!email || !password) {
@@ -39,7 +38,6 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (error) {
-      console.error('[Login] error:', error.message);
       setErrorMsg(error.message);
       if (Platform.OS !== 'web') Alert.alert('Error de acceso', error.message);
     }

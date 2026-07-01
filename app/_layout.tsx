@@ -23,9 +23,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <View style={eb.container}>
           <ScrollView contentContainerStyle={eb.scroll}>
-            <Text style={eb.title}>Error de inicio</Text>
-            <Text style={eb.message}>{(error as Error).message}</Text>
-            <Text style={eb.stack}>{(error as Error).stack}</Text>
+            <Text style={eb.title}>Algo ha ido mal</Text>
+            <Text style={eb.message}>
+              La app ha encontrado un error inesperado. Cierra y vuelve a abrirla; si persiste, contacta con soporte.
+            </Text>
           </ScrollView>
         </View>
       );
@@ -38,8 +39,7 @@ const eb = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   scroll: { padding: 24, paddingTop: 60 },
   title: { color: '#ff453a', fontSize: 18, fontWeight: '700', marginBottom: 12 },
-  message: { color: '#fff', fontSize: 14, marginBottom: 16 },
-  stack: { color: '#888', fontSize: 11, lineHeight: 16 },
+  message: { color: '#fff', fontSize: 14, marginBottom: 16, lineHeight: 20 },
 });
 
 function NavigationGuard() {
