@@ -1,8 +1,8 @@
-import { View, ActivityIndicator, useColorScheme } from 'react-native';
-import { getColors } from '../constants/colors';
+import { View, ActivityIndicator } from 'react-native';
+import { useTheme } from '../hooks/useTheme';
 
 export default function Index() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
       <ActivityIndicator color={colors.accent} />

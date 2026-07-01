@@ -7,11 +7,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { getColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { Input } from '../../components/ui/Input';
@@ -27,7 +26,7 @@ export default function LoginScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaKey, setCaptchaKey] = useState(0);
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
 
   const captchaRequired = !!TURNSTILE_SITE_KEY;
 

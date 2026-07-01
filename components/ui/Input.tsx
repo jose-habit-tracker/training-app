@@ -7,9 +7,8 @@ import {
   ViewStyle,
   StyleSheet,
   StyleProp,
-  useColorScheme,
 } from 'react-native';
-import { getColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 
@@ -28,8 +27,7 @@ export function Input({
   style,
   ...rest
 }: InputProps) {
-  const colors = getColors(useColorScheme());
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const [focused, setFocused] = useState(false);
 
   const borderColor = error

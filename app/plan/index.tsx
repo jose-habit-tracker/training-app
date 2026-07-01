@@ -5,18 +5,18 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { usePlan } from '../../lib/PlanContext';
 
 export default function PlanListScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const { days } = usePlan();
 
   return (

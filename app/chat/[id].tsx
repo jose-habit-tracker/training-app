@@ -9,11 +9,10 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { getColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { askGroq } from '../../lib/groq';
@@ -203,7 +202,7 @@ function applyProposed(current: DayPlan[], proposed: DayPlan[]): DayPlan[] {
 
 // ─── Conversation screen ──────────────────────────────────────────────────────
 export default function ConversationScreen() {
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const { days, save } = usePlan();
   const [messages, setMessages] = useState<ChatMessage[]>([]);

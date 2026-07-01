@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS, SESSION_DEFAULTS } from '../../constants/trainingPlan';
@@ -23,7 +23,7 @@ const SESSION_TYPES = Object.keys(SESSION_LABELS) as SessionType[];
 
 export default function EditDayScreen() {
   const { day } = useLocalSearchParams<{ day: string }>();
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
   const { days, save } = usePlan();
 
   const original = days.find((d) => d.day === day);

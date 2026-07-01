@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { getColors, SessionColors } from '../../constants/colors';
+import { SessionColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
@@ -84,7 +84,7 @@ function ScalePicker({
   onChange: (v: number) => void;
   label: string;
   accentColor: string;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
   return (
     <View style={p.pickerBlock}>
@@ -130,7 +130,7 @@ function ExerciseRow({
   exercise: ExerciseTemplate;
   done: boolean;
   accentColor: string;
-  colors: ReturnType<typeof getColors>;
+  colors: ReturnType<typeof useTheme>['colors'];
   onToggle: () => void;
 }) {
   return (
@@ -168,7 +168,7 @@ function ExerciseRow({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function LogDayScreen() {
   const { day, done } = useLocalSearchParams<{ day: string; done?: string }>();
-  const colors = getColors(useColorScheme());
+  const { colors } = useTheme();
 
   const { days } = usePlan();
   const plan = days.find((d) => d.day === day);
