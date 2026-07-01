@@ -18,7 +18,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { askGroq } from '../../lib/groq';
 import { supabase } from '../../lib/supabase';
-import { ChatMessage, TrainingSession, DayPlan } from '../../types';
+import { ChatMessage, TrainingSession, DayPlan, ExerciseTemplate, SessionType } from '../../types';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -134,23 +134,69 @@ function extractPlanUpdate(text: string): { clean: string; proposed: DayPlan[] |
   }
 }
 
-// Fusiona los días propuestos sobre el plan actual (validando y regenerando ids)
+// ─── Saneado de la salida del LLM ───────────────────────────────────────────────
+// El bloque ```plan lo escribe la IA; nunca confiamos en su forma. Cada campo se
+// fuerza a su tipo esperado y lo que no encaje se descarta, para que una respuesta
+// malformada no corrompa el plan ni rompa la UI.
+function optStr(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+function str(v: unknown, fallback: string): string {
+  return typeof v === 'string' ? v : fallback;
+}
+function optNum(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+function sanitizeExercise(ex: unknown, id: string): ExerciseTemplate | null {
+  if (!ex || typeof ex !== 'object') return null;
+  const e = ex as Record<string, unknown>;
+  const name = typeof e.name === 'string' ? e.name.trim() : '';
+  if (!name) return null; // sin nombre no es un ejercicio válido
+  return {
+    id,
+    name,
+    sets: optNum(e.sets),
+    reps: optStr(e.reps),
+    load: optStr(e.load),
+    distance: optStr(e.distance),
+    duration: optStr(e.duration),
+    rest: optStr(e.rest),
+    notes: optStr(e.notes),
+  };
+}
+
+// Fusiona los días propuestos sobre el plan actual, validando cada campo.
 function applyProposed(current: DayPlan[], proposed: DayPlan[]): DayPlan[] {
   return current.map((d) => {
-    const p = proposed.find((x) => x.day === d.day);
-    if (!p) return d;
-    const sessionType = SESSION_TYPE_KEYS.includes(p.sessionType) ? p.sessionType : d.sessionType;
-    const exercises = Array.isArray(p.exercises)
-      ? p.exercises.map((ex, i) => ({ ...ex, id: `${d.day}-${Date.now()}-${i}` }))
+    const raw = proposed.find(
+      (x) => x && typeof x === 'object' && (x as { day?: unknown }).day === d.day,
+    ) as Record<string, unknown> | undefined;
+    if (!raw) return d;
+
+    const sessionType: SessionType = SESSION_TYPE_KEYS.includes(raw.sessionType as string)
+      ? (raw.sessionType as SessionType)
+      : d.sessionType;
+
+    const exercises = Array.isArray(raw.exercises)
+      ? raw.exercises
+          .map((ex, i) => sanitizeExercise(ex, `${d.day}-${Date.now()}-${i}`))
+          .filter((ex): ex is ExerciseTemplate => ex !== null)
       : d.exercises;
+
+    const durNum = Number(raw.duration);
+
     return {
-      ...d,
-      ...p,
       day: d.day,
       dayName: d.dayName,
       sessionType,
-      duration: Number(p.duration) || d.duration,
+      title: str(raw.title, d.title),
+      duration: Number.isFinite(durNum) && durNum > 0 ? durNum : d.duration,
+      description: str(raw.description, d.description),
       exercises,
+      warmup: optStr(raw.warmup) ?? d.warmup,
+      cooldown: optStr(raw.cooldown) ?? d.cooldown,
+      notes: optStr(raw.notes) ?? d.notes,
     };
   });
 }
