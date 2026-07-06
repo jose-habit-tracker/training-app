@@ -12,7 +12,7 @@ import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { SESSION_LABELS } from '../../constants/trainingPlan';
+import { SESSION_LABELS, SUBTYPE_LABELS } from '../../constants/trainingPlan';
 import { TrainingSession, SessionType } from '../../types';
 import { StatGrid, StatCard } from '../../components/ui/Card';
 import { useSessions, useWeekSessions } from '../../hooks/useTraining';
@@ -129,6 +129,28 @@ function SessionCard({
           )}
           {session.fatigue != null && (
             <Chip label={`Fatiga ${session.fatigue}`} color={colors.orange} bg={colors.orange + '1A'} />
+          )}
+          {session.subtype && (
+            <Chip label={SUBTYPE_LABELS[session.subtype]} color={colors.text2} bg={colors.border} />
+          )}
+          {session.metrics?.distancia_km != null && (
+            <Chip label={`${session.metrics.distancia_km} km`} color={barColor} bg={barColor + '1A'} />
+          )}
+          {session.metrics?.ritmo_min_km && (
+            <Chip label={`${session.metrics.ritmo_min_km}/km`} color={barColor} bg={barColor + '1A'} />
+          )}
+          {session.metrics?.metros != null && (
+            <Chip label={`${session.metrics.metros} m`} color={barColor} bg={barColor + '1A'} />
+          )}
+          {session.metrics?.fc_media != null && (
+            <Chip label={`FC ${session.metrics.fc_media}`} color={colors.text3} bg={colors.border} />
+          )}
+          {session.metrics?.ejercicios?.some((e) => e.kg != null) && (
+            <Chip
+              label={`máx ${Math.max(...session.metrics.ejercicios.filter((e) => e.kg != null).map((e) => e.kg as number))} kg`}
+              color={colors.text3}
+              bg={colors.border}
+            />
           )}
           <Chip label={expanded ? '▲ Menos' : '▼ Más'} color={colors.text3} bg={colors.border} />
         </View>

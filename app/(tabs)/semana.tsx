@@ -14,7 +14,7 @@ import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { getCurrentWeek, getPhaseLabel } from '../../hooks/useTraining';
+import { getCurrentWeek, getPhaseLabel, useWeekSessions } from '../../hooks/useTraining';
 import { useTheme } from '../../hooks/useTheme';
 import { usePlan } from '../../lib/PlanContext';
 
@@ -33,6 +33,8 @@ export default function SemanaScreen() {
   const todayKey = DAY_MAP[new Date().getDay()];
   const week = getCurrentWeek();
   const { days } = usePlan();
+  const { sessions: weekSessions } = useWeekSessions();
+  const loggedDays = new Set(weekSessions.map((s) => s.day_name.toLowerCase()));
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -47,6 +49,28 @@ export default function SemanaScreen() {
           <View style={[s.weekBadge, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1 }]}>
             <Text style={[s.weekBadgeText, { color: colors.text3 }]}>Semana {week} · Fase {getPhaseLabel(week)}</Text>
           </View>
+        </View>
+
+        <View style={s.progressStrip}>
+          {days.map((d) => {
+            const isDone = loggedDays.has(d.dayName.toLowerCase());
+            const isToday = d.day === todayKey;
+            return (
+              <View
+                key={d.day}
+                style={[
+                  s.progressDot,
+                  {
+                    backgroundColor: isDone
+                      ? (SessionColors[d.sessionType] ?? colors.accent)
+                      : colors.border,
+                    borderWidth: isToday ? 2 : 0,
+                    borderColor: colors.accent,
+                  },
+                ]}
+              />
+            );
+          })}
         </View>
 
         <Button
@@ -152,6 +176,8 @@ const s = StyleSheet.create({
   weekBadgeText: { fontSize: FontSize.base, fontWeight: FontWeight.label },
 
   editBtn: { marginBottom: Spacing.lg },
+  progressStrip: { flexDirection: 'row', gap: Spacing.gapSm, marginBottom: Spacing.lg },
+  progressDot: { flex: 1, height: 6, borderRadius: 3 },
 
   card: {
     borderRadius: Radius.card,
