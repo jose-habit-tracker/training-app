@@ -1,16 +1,8 @@
-import { Platform } from 'react-native';
 import { ChatMessage } from '../types';
 import { supabase } from './supabase';
+import { apiUrl } from './apiBase';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-
-// En web el proxy es relativo; en nativo necesitamos la URL absoluta del deploy.
-function chatEndpoint(): string {
-  if (Platform.OS === 'web') return '/api/chat';
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (!base) throw new Error('EXPO_PUBLIC_API_BASE_URL no configurada');
-  return `${base.replace(/\/$/, '')}/api/chat`;
-}
 
 export async function askGroq(
   messages: ChatMessage[],
@@ -36,7 +28,7 @@ export async function askGroq(
     Authorization: `Bearer ${session.access_token}`,
   };
 
-  const response = await fetch(chatEndpoint(), { method: 'POST', headers, body });
+  const response = await fetch(apiUrl('/api/chat'), { method: 'POST', headers, body });
 
   if (!response.ok) {
     const error = await response.text();
