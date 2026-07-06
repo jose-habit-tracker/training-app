@@ -26,9 +26,11 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "@vercel/node": "^5.8.17",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
+    "test": "vitest run",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
