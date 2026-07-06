@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,12 @@ import { SessionColors } from '../../constants/colors';
 import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { SESSION_LABELS } from '../../constants/trainingPlan';
-import { ExerciseTemplate } from '../../types';
+import { SESSION_LABELS, SUBTYPES_BY_GROUP, sportGroupOf } from '../../constants/trainingPlan';
+import { ExerciseTemplate, SessionSubtype, SessionMetrics } from '../../types';
+import { SubtypePicker } from '../../components/training/SubtypePicker';
+import { RunningFields } from '../../components/training/RunningFields';
+import { SwimFields } from '../../components/training/SwimFields';
+import { GymFields } from '../../components/training/GymFields';
 import { supabase } from '../../lib/supabase';
 import { askGroq } from '../../lib/groq';
 import { Input } from '../../components/ui/Input';
@@ -167,7 +171,7 @@ function ExerciseRow({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function LogDayScreen() {
-  const { day, done } = useLocalSearchParams<{ day: string; done?: string }>();
+  const { day, done, prefill, date } = useLocalSearchParams<{ day: string; done?: string; prefill?: string; date?: string }>();
   const { colors } = useTheme();
 
   const { days } = usePlan();
@@ -181,6 +185,27 @@ export default function LogDayScreen() {
   const [rpe, setRpe] = useState(7);
   const [fatigue, setFatigue] = useState(5);
   const [notes, setNotes] = useState('');
+  const group = plan ? sportGroupOf(plan.sessionType) : 'other';
+  const [subtype, setSubtype] = useState<SessionSubtype | null>(() => SUBTYPES_BY_GROUP[group][0] ?? null);
+  const [metrics, setMetrics] = useState<SessionMetrics>({});
+  const [duration, setDuration] = useState<number>(plan?.duration ?? 0);
+
+  // Prefill desde una propuesta del coach (botón «Editar» de la tarjeta).
+  useEffect(() => {
+    if (!prefill) return;
+    try {
+      const p = JSON.parse(prefill) as {
+        subtype?: SessionSubtype; duration_min?: number; rpe?: number;
+        fatigue?: number; notes?: string; metrics?: SessionMetrics;
+      };
+      if (p.subtype) setSubtype(p.subtype);
+      if (p.duration_min) setDuration(p.duration_min);
+      if (p.rpe) setRpe(p.rpe);
+      if (p.fatigue) setFatigue(p.fatigue);
+      if (p.notes) setNotes(p.notes);
+      if (p.metrics) setMetrics(p.metrics);
+    } catch { /* prefill malformado → formulario limpio */ }
+  }, [prefill]);
   const [saving, setSaving] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
   const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
@@ -201,13 +226,17 @@ export default function LogDayScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { Alert.alert('Error', 'No hay sesión activa'); setSaving(false); return; }
 
-      const today = new Date().toISOString().split('T')[0];
+      const sessionDate = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : new Date().toISOString().split('T')[0];
 
       const fields = {
         day_name: plan.dayName,
         week_number: weekNumber,
         session_type: plan.sessionType,
-        duration_min: plan.duration,
+        subtype,
+        metrics: Object.keys(metrics).length ? metrics : null,
+        duration_min: duration || plan.duration,
         rpe_perceived: rpe,
         fatigue,
         notes: notes.trim() || null,
@@ -219,12 +248,12 @@ export default function LogDayScreen() {
         .from('training_sessions')
         .select('id')
         .eq('user_id', user.id)
-        .eq('session_date', today)
+        .eq('session_date', sessionDate)
         .maybeSingle();
 
       const query = existing
         ? supabase.from('training_sessions').update(fields).eq('id', existing.id)
-        : supabase.from('training_sessions').insert({ user_id: user.id, session_date: today, ...fields });
+        : supabase.from('training_sessions').insert({ user_id: user.id, session_date: sessionDate, ...fields });
 
       const { data: session, error: sessionErr } = await query.select().single();
 
@@ -282,7 +311,7 @@ export default function LogDayScreen() {
     } finally {
       setSaving(false);
     }
-  }, [plan, weekNumber, rpe, fatigue, notes, completed]);
+  }, [plan, weekNumber, rpe, fatigue, notes, completed, subtype, metrics, duration, date]);
 
   if (!plan) {
     return (
@@ -329,6 +358,36 @@ export default function LogDayScreen() {
               />
             ))}
           </View>
+        )}
+
+        {/* ── Subtipo + métricas por deporte ── */}
+        {!savedSessionId && (
+          <SubtypePicker group={group} value={subtype} onChange={setSubtype} accentColor={accentColor} />
+        )}
+
+        {!savedSessionId && (
+          <Input
+            label="Duración (min)"
+            value={duration ? duration.toString() : ''}
+            onChangeText={(v) => setDuration(Number(v) || 0)}
+            keyboardType="number-pad"
+            placeholder={`${plan.duration}`}
+          />
+        )}
+
+        {!savedSessionId && group === 'run' && (
+          <RunningFields metrics={metrics} durationMin={duration || plan.duration} onChange={setMetrics} />
+        )}
+        {!savedSessionId && group === 'swim' && (
+          <SwimFields metrics={metrics} onChange={setMetrics} />
+        )}
+        {!savedSessionId && group === 'gym' && plan.exercises && (
+          <GymFields
+            exercises={plan.exercises}
+            completedIds={completed}
+            values={metrics.ejercicios ?? []}
+            onChange={(ejercicios) => setMetrics({ ...metrics, ejercicios: ejercicios.length ? ejercicios : undefined })}
+          />
         )}
 
         {/* ── RPE + Fatigue ── */}
