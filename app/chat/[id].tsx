@@ -17,12 +17,13 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { askGroq } from '../../lib/groq';
 import { supabase } from '../../lib/supabase';
-import { ChatMessage, TrainingSession, DayPlan, ExerciseTemplate, SessionType } from '../../types';
+import { ChatMessage, TrainingSession, DayPlan } from '../../types';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek } from '../../hooks/useTraining';
 import { usePlan } from '../../lib/PlanContext';
+import { applyProposedDays } from '../../lib/coach/planMerge';
 
 const GREETING: ChatMessage = {
   role: 'assistant',
@@ -115,9 +116,7 @@ INSTRUCCIONES:
 - Tono motivador pero realista. Máximo 180 palabras por respuesta salvo que te pidan más detalle.`;
 }
 
-// ─── Plan-update parsing / applying ─────────────────────────────────────────────
-const SESSION_TYPE_KEYS = Object.keys(SESSION_LABELS);
-
+// ─── Plan-update parsing ─────────────────────────────────────────────────────
 // Extrae el bloque ```plan ...``` de la respuesta del coach, si lo hay
 function extractPlanUpdate(text: string): { clean: string; proposed: DayPlan[] | null } {
   const m = text.match(/```(?:plan|json)\s*([\s\S]*?)```/i);
@@ -131,73 +130,6 @@ function extractPlanUpdate(text: string): { clean: string; proposed: DayPlan[] |
   } catch {
     return { clean: text, proposed: null };
   }
-}
-
-// ─── Saneado de la salida del LLM ───────────────────────────────────────────────
-// El bloque ```plan lo escribe la IA; nunca confiamos en su forma. Cada campo se
-// fuerza a su tipo esperado y lo que no encaje se descarta, para que una respuesta
-// malformada no corrompa el plan ni rompa la UI.
-function optStr(v: unknown): string | undefined {
-  return typeof v === 'string' ? v : undefined;
-}
-function str(v: unknown, fallback: string): string {
-  return typeof v === 'string' ? v : fallback;
-}
-function optNum(v: unknown): number | undefined {
-  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
-}
-
-function sanitizeExercise(ex: unknown, id: string): ExerciseTemplate | null {
-  if (!ex || typeof ex !== 'object') return null;
-  const e = ex as Record<string, unknown>;
-  const name = typeof e.name === 'string' ? e.name.trim() : '';
-  if (!name) return null; // sin nombre no es un ejercicio válido
-  return {
-    id,
-    name,
-    sets: optNum(e.sets),
-    reps: optStr(e.reps),
-    load: optStr(e.load),
-    distance: optStr(e.distance),
-    duration: optStr(e.duration),
-    rest: optStr(e.rest),
-    notes: optStr(e.notes),
-  };
-}
-
-// Fusiona los días propuestos sobre el plan actual, validando cada campo.
-function applyProposed(current: DayPlan[], proposed: DayPlan[]): DayPlan[] {
-  return current.map((d) => {
-    const raw = proposed.find(
-      (x) => x && typeof x === 'object' && (x as { day?: unknown }).day === d.day,
-    ) as Record<string, unknown> | undefined;
-    if (!raw) return d;
-
-    const sessionType: SessionType = SESSION_TYPE_KEYS.includes(raw.sessionType as string)
-      ? (raw.sessionType as SessionType)
-      : d.sessionType;
-
-    const exercises = Array.isArray(raw.exercises)
-      ? raw.exercises
-          .map((ex, i) => sanitizeExercise(ex, `${d.day}-${Date.now()}-${i}`))
-          .filter((ex): ex is ExerciseTemplate => ex !== null)
-      : d.exercises;
-
-    const durNum = Number(raw.duration);
-
-    return {
-      day: d.day,
-      dayName: d.dayName,
-      sessionType,
-      title: str(raw.title, d.title),
-      duration: Number.isFinite(durNum) && durNum > 0 ? durNum : d.duration,
-      description: str(raw.description, d.description),
-      exercises,
-      warmup: optStr(raw.warmup) ?? d.warmup,
-      cooldown: optStr(raw.cooldown) ?? d.cooldown,
-      notes: optStr(raw.notes) ?? d.notes,
-    };
-  });
 }
 
 // ─── Conversation screen ──────────────────────────────────────────────────────
@@ -306,7 +238,7 @@ export default function ConversationScreen() {
     const changed = proposed.map((p) => p.dayName ?? p.day).join(', ');
     if (!(await confirmApply(`El coach propone cambios en: ${changed}. ¿Aplicar a tu plan?`))) return;
     setApplyingIndex(index);
-    const err = await save(applyProposed(days, proposed));
+    const err = await save(applyProposedDays(days, proposed));
     setApplyingIndex(null);
     if (err) { Alert.alert('Error al aplicar', err); return; }
     setApplied((prev) => new Set(prev).add(index));
