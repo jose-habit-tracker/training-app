@@ -19,6 +19,13 @@ export function getCurrentWeek(): number {
   return Math.min(PLAN_WEEKS, Math.max(1, week));
 }
 
+export function getWeekForDate(dateStr: string): number {
+  const diffMs = new Date(`${dateStr}T00:00:00`).getTime() - PLAN_START.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  const week = Math.floor(diffDays / 7) + 1;
+  return Math.min(PLAN_WEEKS, Math.max(1, week));
+}
+
 const PHASE_LABEL: Record<keyof typeof TRAINING_PHASES, string> = {
   base: 'Base', build: 'Build', peak: 'Peak', taper: 'Taper', race: 'Carrera', hyrox_prep: 'Hyrox Prep',
 };
