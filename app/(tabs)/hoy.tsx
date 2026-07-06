@@ -1,424 +1,306 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
+  FlatList,
   StyleSheet,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { SessionColors } from '../../constants/colors';
+import { useTheme } from '../../hooks/useTheme';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
-import { SESSION_LABELS } from '../../constants/trainingPlan';
-import { DayPlan, ExerciseTemplate } from '../../types';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { useToday, getPhaseLabel } from '../../hooks/useTraining';
-import { useTheme } from '../../hooks/useTheme';
+import { supabase } from '../../lib/supabase';
 import { usePlan } from '../../lib/PlanContext';
+import { useToday, getPhaseLabel } from '../../hooks/useTraining';
+import { useRecorder } from '../../hooks/useRecorder';
+import { buildGreeting } from '../../lib/coach/greeting';
+import { buildCoachSystemPrompt, DAY_MAP } from '../../lib/coach/context';
+import { askCoach, transcribeAudio } from '../../lib/coach/api';
+import { executeProposal } from '../../lib/coach/actions';
+import type { ActionProposal } from '../../lib/coach/types';
+import { ChatMessage, TrainingSession } from '../../types';
+import { MessageBubble } from '../../components/coach/MessageBubble';
+import { ProposalCard, ProposalStatus } from '../../components/coach/ProposalCard';
+import { ActionChips } from '../../components/coach/ActionChips';
+import { CoachInput } from '../../components/coach/CoachInput';
+
+interface ThreadItem {
+  role: 'user' | 'assistant';
+  content: string;
+  proposal?: ActionProposal;
+  proposalStatus?: ProposalStatus;
+  proposalError?: string;
+}
 
 export default function HoyScreen() {
   const { colors } = useTheme();
-  const { weekNumber, dayKey, loggedSession, loadingLog } = useToday();
-  const { days } = usePlan();
-  const todayPlan = days.find((d) => d.day === dayKey) ?? null;
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [sessionDone, setSessionDone] = useState(false);
+  const { days, save } = usePlan();
+  const { plan: todayPlan, weekNumber, dayKey, refresh } = useToday();
+  const recorder = useRecorder();
+
+  const [items, setItems] = useState<ThreadItem[]>([]);
+  const [recentSessions, setRecentSessions] = useState<TrainingSession[]>([]);
+  const [busy, setBusy] = useState(false); // transcribiendo o esperando al coach
+  const [busyLabel, setBusyLabel] = useState('');
+  const [initializing, setInitializing] = useState(true);
+  const listRef = useRef<FlatList>(null);
+  const userIdRef = useRef<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
+
+  const todayIso = new Date().toISOString().split('T')[0];
+  const planToday = days.find((d) => d.day === DAY_MAP[new Date().getDay()]) ?? todayPlan;
+
+  // ── Hilo del día: get-or-create en `conversations` + historial ───────────────
+  useEffect(() => {
+    let active = true;
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setInitializing(false); return; }
+      userIdRef.current = user.id;
+
+      const { data: sessions } = await supabase
+        .from('training_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('session_date', { ascending: false })
+        .limit(3);
+      if (active) setRecentSessions((sessions ?? []) as TrainingSession[]);
+
+      const title = `Hoy · ${todayIso}`;
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', title)
+        .limit(1)
+        .maybeSingle();
+
+      let convId = existing?.id as string | undefined;
+      if (!convId) {
+        const { data: created } = await supabase
+          .from('conversations')
+          .insert({ user_id: user.id, title })
+          .select('id')
+          .single();
+        convId = created?.id;
+      }
+      if (!convId) { setInitializing(false); return; }
+      conversationIdRef.current = convId;
+
+      const { data: history } = await supabase
+        .from('ai_conversations')
+        .select('role, content')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+      if (active) {
+        const rows = (history ?? []) as Array<{ role: 'user' | 'assistant'; content: string }>;
+        setItems(rows.map((m) => ({ role: m.role, content: m.content })));
+        setInitializing(false);
+      }
+    }
+    init();
+    return () => { active = false; };
+  }, [todayIso]);
 
   useEffect(() => {
-    if (loggedSession) setSessionDone(true);
-  }, [loggedSession]);
+    if (items.length > 0) {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [items]);
 
-  function toggleExercise(id: string) {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
+  const persist = useCallback(async (msg: ChatMessage) => {
+    if (!userIdRef.current || !conversationIdRef.current) return;
+    await supabase.from('ai_conversations').insert({
+      user_id: userIdRef.current,
+      conversation_id: conversationIdRef.current,
+      role: msg.role,
+      content: msg.content,
     });
-  }
+  }, []);
 
-  function handleFinishSession() {
-    if (!todayPlan) return;
-    router.push({ pathname: '/log/[day]', params: { day: dayKey, done: [...completed].join(',') } });
-  }
+  // ── Enviar texto (escrito o transcrito) al coach ─────────────────────────────
+  const sendToCoach = useCallback(async (text: string) => {
+    const userMsg: ThreadItem = { role: 'user', content: text };
+    setItems((prev) => [...prev, userMsg]);
+    setBusy(true);
+    setBusyLabel('Coach pensando…');
+    await persist({ role: 'user', content: text });
 
-  if (!todayPlan) {
+    try {
+      const historyMessages: ChatMessage[] = [...items, userMsg]
+        .slice(-10)
+        .map((i) => ({ role: i.role, content: i.content }));
+      const systemPrompt = buildCoachSystemPrompt(days, recentSessions);
+      const reply = await askCoach([
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+      ]);
+
+      const assistantItem: ThreadItem = reply.kind === 'proposal'
+        ? { role: 'assistant', content: reply.content, proposal: reply.proposal, proposalStatus: 'idle' }
+        : { role: 'assistant', content: reply.content };
+      setItems((prev) => [...prev, assistantItem]);
+      if (assistantItem.content) await persist({ role: 'assistant', content: assistantItem.content });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Inténtalo de nuevo.';
+      setItems((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }]);
+    } finally {
+      setBusy(false);
+    }
+  }, [items, days, recentSessions, persist]);
+
+  // ── Audio → transcripción → coach ────────────────────────────────────────────
+  const handleAudio = useCallback(async (blob: Blob) => {
+    setBusy(true);
+    setBusyLabel('Transcribiendo…');
+    try {
+      const text = await transcribeAudio(blob);
+      if (!text) {
+        setItems((prev) => [...prev, { role: 'assistant', content: '⚠️ No he entendido el audio. ¿Lo repites?' }]);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      await sendToCoach(text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error transcribiendo.';
+      setItems((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }]);
+      setBusy(false);
+    }
+  }, [sendToCoach]);
+
+  // ── Confirmar propuesta ──────────────────────────────────────────────────────
+  const handleConfirm = useCallback(async (index: number) => {
+    const item = items[index];
+    if (!item?.proposal) return;
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, proposalStatus: 'applying' } : it)));
+
+    const error = await executeProposal(item.proposal, { days, savePlan: save });
+
+    if (error) {
+      setItems((prev) => prev.map((it, i) =>
+        i === index ? { ...it, proposalStatus: 'error', proposalError: error } : it,
+      ));
+      return;
+    }
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, proposalStatus: 'done' } : it)));
+    const confirmation: ChatMessage = { role: 'assistant', content: '✓ Hecho. Lo tienes en Historial.' };
+    setItems((prev) => [...prev, { role: 'assistant', content: confirmation.content }]);
+    await persist(confirmation);
+    refresh();
+  }, [items, days, save, persist, refresh]);
+
+  // ── Editar propuesta → formulario pre-rellenado ─────────────────────────────
+  const handleEdit = useCallback((index: number) => {
+    const p = items[index]?.proposal;
+    if (!p || (p.action !== 'log_session' && p.action !== 'edit_session')) return;
+    router.push({
+      pathname: '/log/[day]',
+      params: { day: dayKey, prefill: JSON.stringify(p.args), date: p.args.session_date },
+    });
+  }, [items, dayKey]);
+
+  const greeting = buildGreeting(planToday ?? null, weekNumber, getPhaseLabel(weekNumber), recentSessions[0] ?? null);
+  const showChips = !items.some((i) => i.role === 'user');
+
+  if (initializing) {
     return (
-      <SafeAreaView style={[s.container, { backgroundColor: colors.background }]}>
-        <View style={s.empty}>
-          <Text style={[s.emptyText, { color: colors.text3 }]}>Cargando plan...</Text>
+      <SafeAreaView style={[s.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+        <View style={s.center}>
+          <ActivityIndicator color={colors.accent} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const accentColor = SessionColors[todayPlan.sessionType] ?? colors.accent;
-  const totalEx = todayPlan.exercises?.length ?? 0;
-  const progress = totalEx > 0 ? completed.size / totalEx : 0;
-
   return (
     <SafeAreaView style={[s.container, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={s.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={88}
       >
-        {/* ── Header card ── */}
-        <Card flush style={[s.headerCard, { borderLeftColor: accentColor }]}>
-          <View style={s.headerTop}>
-            <View style={s.headerLeft}>
-              <Text style={[s.dayLabel, { color: colors.text3 }]}>
-                {todayPlan.dayName.toUpperCase()}
-              </Text>
-              <Text style={[s.sessionTitle, { color: colors.text }]}>
-                {todayPlan.title}
-              </Text>
+        <FlatList
+          ref={listRef}
+          data={items}
+          keyExtractor={(_, i) => i.toString()}
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <View>
+              <View style={[s.weekChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+                <Text style={[s.weekChipText, { color: colors.text3 }]}>
+                  Semana {weekNumber} · {getPhaseLabel(weekNumber)}
+                </Text>
+              </View>
+              <MessageBubble role="assistant" content={greeting} />
+              {showChips && (
+                <ActionChips
+                  micSupported={recorder.supported}
+                  onRecord={() => { void recorder.start(); }}
+                  onManualLog={() => router.push({ pathname: '/log/[day]', params: { day: dayKey } })}
+                  onViewPlan={() => router.push({ pathname: '/plan/[day]', params: { day: dayKey } })}
+                />
+              )}
             </View>
-            <View style={[s.typeBadge, { backgroundColor: accentColor + '22' }]}>
-              <Text style={[s.typeLabel, { color: accentColor }]}>
-                {SESSION_LABELS[todayPlan.sessionType]}
-              </Text>
-            </View>
-          </View>
+          }
+          renderItem={({ item, index }) => (
+            <MessageBubble role={item.role} content={item.content}>
+              {item.proposal && (
+                <ProposalCard
+                  proposal={item.proposal}
+                  status={item.proposalStatus ?? 'idle'}
+                  error={item.proposalError}
+                  onConfirm={() => handleConfirm(index)}
+                  onEdit={
+                    item.proposal.action === 'log_session' || item.proposal.action === 'edit_session'
+                      ? () => handleEdit(index)
+                      : undefined
+                  }
+                />
+              )}
+            </MessageBubble>
+          )}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        />
 
-          <Text style={[s.description, { color: colors.text2 }]}>
-            {todayPlan.description}
-          </Text>
-
-          <View style={s.metaRow}>
-            <MetaStat value={`${todayPlan.duration}`} label="minutos" color={colors.text} />
-            {totalEx > 0 && (
-              <MetaStat value={`${totalEx}`} label="ejercicios" color={colors.text} />
-            )}
-            <MetaStat
-              value={`${Math.round(progress * 100)}%`}
-              label="completado"
-              color={accentColor}
-            />
-          </View>
-
-          <View style={[s.progressTrack, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                s.progressFill,
-                { width: `${progress * 100}%`, backgroundColor: accentColor },
-              ]}
-            />
-          </View>
-        </Card>
-
-        {/* ── Warmup ── */}
-        {todayPlan.warmup && (
-          <Section title="Calentamiento" colors={colors}>
-            <Text style={[s.sectionBody, { color: colors.text2, backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              {todayPlan.warmup}
-            </Text>
-          </Section>
-        )}
-
-        {/* ── Exercises ── */}
-        {todayPlan.exercises && todayPlan.exercises.length > 0 && (
-          <Section title="Ejercicios" colors={colors}>
-            {todayPlan.exercises.map((ex) => (
-              <ExerciseCard
-                key={ex.id}
-                exercise={ex}
-                done={completed.has(ex.id)}
-                accentColor={accentColor}
-                colors={colors}
-                onToggle={() => toggleExercise(ex.id)}
-              />
-            ))}
-          </Section>
-        )}
-
-        {/* ── Cooldown ── */}
-        {todayPlan.cooldown && (
-          <Section title="Enfriamiento" colors={colors}>
-            <Text style={[s.sectionBody, { color: colors.text2, backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              {todayPlan.cooldown}
-            </Text>
-          </Section>
-        )}
-
-        {/* ── Coach notes ── */}
-        {todayPlan.notes && (
-          <View style={[s.notesCard, { borderColor: accentColor + '44', backgroundColor: colors.glassBg }]}>
-            <Text style={[s.notesTitle, { color: colors.text3 }]}>Notas del coach</Text>
-            <Text style={[s.notesBody, { color: colors.text2 }]}>{todayPlan.notes}</Text>
+        {busy && (
+          <View style={s.typing}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[s.typingText, { color: colors.text3 }]}>{busyLabel}</Text>
           </View>
         )}
 
-        {/* ── Week badge ── */}
-        <View style={[s.weekRow, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-          <Text style={[s.weekText, { color: colors.text3 }]}>Semana {weekNumber} · Fase {getPhaseLabel(weekNumber)}</Text>
-        </View>
-
-        {/* ── Finish / log button ── */}
-        {sessionDone ? (
-          <View style={[s.doneCard, { backgroundColor: colors.accent + '18', borderColor: colors.accent + '44' }]}>
-            <Text style={[s.doneTitle, { color: colors.accent }]}>✓ Sesión registrada</Text>
-            {loggedSession?.ai_feedback && (
-              <Text style={[s.doneFeedback, { color: colors.text2 }]}>{loggedSession.ai_feedback}</Text>
-            )}
-          </View>
-        ) : (
-          <Button
-            label="Registrar sesión y pedir feedback"
-            onPress={handleFinishSession}
-            fullWidth
-            style={[s.finishBtn, { backgroundColor: colors.text }]}
-          />
-        )}
-      </ScrollView>
+        <CoachInput onSendText={sendToCoach} onSendAudio={handleAudio} busy={busy} recorder={recorder} />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function MetaStat({ value, label, color }: { value: string; label: string; color: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={s.metaItem}>
-      <Text style={[s.metaValue, { color }]}>{value}</Text>
-      <Text style={[s.metaLabel, { color: colors.text3 }]}>{label}</Text>
-    </View>
-  );
-}
-
-function Section({
-  title,
-  children,
-  colors,
-}: {
-  title: string;
-  children: React.ReactNode;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  return (
-    <View style={s.section}>
-      <Text style={[s.sectionTitle, { color: colors.text3 }]}>{title.toUpperCase()}</Text>
-      {children}
-    </View>
-  );
-}
-
-function ExerciseCard({
-  exercise,
-  done,
-  accentColor,
-  colors,
-  onToggle,
-}: {
-  exercise: ExerciseTemplate;
-  done: boolean;
-  accentColor: string;
-  colors: ReturnType<typeof useTheme>['colors'];
-  onToggle: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[
-        s.exCard,
-        {
-          backgroundColor: colors.glassBg,
-          borderColor: done ? colors.border : colors.glassBorder,
-          opacity: done ? 0.62 : 1,
-        },
-      ]}
-      onPress={onToggle}
-      activeOpacity={0.75}
-    >
-      {/* Checkbox */}
-      <View
-        style={[
-          s.checkbox,
-          {
-            borderColor: done ? accentColor : 'rgba(142,142,147,0.35)',
-            backgroundColor: done ? accentColor : 'transparent',
-          },
-        ]}
-      >
-        {done && <Text style={s.checkmark}>✓</Text>}
-      </View>
-
-      <View style={s.exInfo}>
-        <Text
-          style={[
-            s.exName,
-            {
-              color: colors.text,
-              textDecorationLine: done ? 'line-through' : 'none',
-            },
-          ]}
-        >
-          {exercise.name}
-        </Text>
-
-        <View style={s.exMeta}>
-          {exercise.sets && exercise.reps && (
-            <Chip label={`${exercise.sets}×${exercise.reps}`} color={colors.text3} bg={colors.border} />
-          )}
-          {!exercise.sets && exercise.reps && (
-            <Chip label={exercise.reps} color={colors.text3} bg={colors.border} />
-          )}
-          {exercise.distance && (
-            <Chip label={exercise.distance} color={colors.text3} bg={colors.border} />
-          )}
-          {exercise.duration && (
-            <Chip label={exercise.duration} color={colors.text3} bg={colors.border} />
-          )}
-          {exercise.load && (
-            <Chip label={exercise.load} color={accentColor} bg={accentColor + '18'} />
-          )}
-          {exercise.rest && (
-            <Chip label={`Rest: ${exercise.rest}`} color={colors.text3} bg={colors.border} />
-          )}
-        </View>
-
-        {exercise.notes && (
-          <Text style={[s.exNotes, { color: colors.text3 }]}>{exercise.notes}</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function Chip({ label, color, bg }: { label: string; color: string; bg: string }) {
-  return (
-    <View style={[s.chip, { backgroundColor: bg }]}>
-      <Text style={[s.chipText, { color }]}>{label}</Text>
-    </View>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: FontSize.body },
-
-  // Header card
-  headerCard: {
-    borderLeftWidth: 4,
-    marginHorizontal: 0,
-    marginTop: 0,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.gapMd,
-  },
-  headerLeft: { flex: 1 },
-  dayLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.heavy,
-    letterSpacing: Spacing.gapXxs / 2,
-    marginBottom: Spacing.gapXxs,
-  },
-  sessionTitle: {
-    fontSize: 22,
-    fontWeight: FontWeight.black,
-    letterSpacing: -0.3,
-  },
-  typeBadge: {
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.gapXs,
-    borderRadius: Radius.pill,
-  },
-  typeLabel: { fontSize: FontSize.base, fontWeight: FontWeight.heavy },
-  description: { fontSize: FontSize.md, lineHeight: 20, marginBottom: Spacing.lg },
-  metaRow: { flexDirection: 'row', gap: Spacing.xxl, marginBottom: Spacing.base },
-  metaItem: { alignItems: 'center' },
-  metaValue: { fontSize: 20, fontWeight: FontWeight.black },
-  metaLabel: { fontSize: FontSize.sm, marginTop: 2 },
-  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2 },
-
-  // Sections
-  section: { marginBottom: Spacing.lg },
-  sectionTitle: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.heavy,
-    letterSpacing: 0.65,
-    marginBottom: Spacing.gapMd,
-  },
-  sectionBody: {
-    fontSize: FontSize.md,
-    lineHeight: 20,
-    padding: Spacing.base,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-  },
-
-  // Exercise card
-  exCard: {
-    borderRadius: Radius.md,
-    padding: Spacing.base,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.base,
-    marginBottom: Spacing.gapSm,
-    borderWidth: 1,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  checkmark: { color: '#fff', fontSize: FontSize.base, fontWeight: FontWeight.black },
-  exInfo: { flex: 1 },
-  exName: { fontSize: FontSize.body, fontWeight: FontWeight.label, marginBottom: Spacing.gapXxs },
-  exMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gapSm },
-  exNotes: { fontSize: FontSize.base, marginTop: Spacing.gapXs, lineHeight: 16, fontStyle: 'italic' },
-
-  // Chips
-  chip: { paddingHorizontal: Spacing.gapSm, paddingVertical: 3, borderRadius: Spacing.gapXs },
-  chipText: { fontSize: FontSize.base },
-
-  // Coach notes
-  notesCard: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.base,
-    marginBottom: Spacing.lg,
-  },
-  notesTitle: {
-    fontSize: FontSize.base,
-    fontWeight: FontWeight.heavy,
-    letterSpacing: 0.5,
-    marginBottom: Spacing.gapXs,
-  },
-  notesBody: { fontSize: FontSize.md, lineHeight: 18 },
-
-  finishBtn: { marginTop: Spacing.gapSm },
-  weekRow: {
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.gapXs,
+  flex: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  list: { padding: Spacing.lg, paddingBottom: Spacing.gapSm },
+  weekChip: {
     alignSelf: 'center',
-    marginTop: Spacing.gapSm,
-  },
-  weekText: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy },
-  doneCard: {
-    borderRadius: Radius.card,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    padding: Spacing.cardPadding,
-    marginTop: Spacing.gapSm,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.gapXs,
+    marginBottom: Spacing.base,
+  },
+  weekChipText: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy },
+  typing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.gapSm,
     gap: Spacing.gapSm,
   },
-  doneTitle: { fontSize: FontSize.body, fontWeight: FontWeight.black },
-  doneFeedback: { fontSize: FontSize.md, lineHeight: 20 },
+  typingText: { fontSize: FontSize.md },
 });

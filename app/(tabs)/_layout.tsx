@@ -42,8 +42,8 @@ export default function TabsLayout() {
         name="hoy"
         options={{
           title: 'Hoy',
-          headerTitle: 'Entrenamiento de hoy',
-          tabBarIcon: ({ color }) => <TabIcon name="flame" color={color} />,
+          headerTitle: 'Hoy',
+          tabBarIcon: ({ color }) => <TabIcon name="sunny" color={color} />,
         }}
       />
       <Tabs.Screen
