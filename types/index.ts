@@ -10,6 +10,43 @@ export type SessionType =
   | 'rest'
   | 'active_recovery';
 
+export type SessionSubtype =
+  | 'easy'
+  | 'long_run'
+  | 'intervals'
+  | 'threshold'
+  | 'race'
+  | 'swim_technique'
+  | 'swim_sets'
+  | 'strength'
+  | 'hyrox_circuit'
+  | 'recovery';
+
+export type SportGroup = 'run' | 'swim' | 'gym' | 'other';
+
+export interface SwimSet {
+  reps: number;
+  distancia_m: number;
+  descripcion?: string;
+}
+
+export interface GymExerciseMetric {
+  nombre: string;
+  series: number;
+  reps: string;
+  kg?: number;
+}
+
+export interface SessionMetrics {
+  distancia_km?: number;
+  ritmo_min_km?: string; // "4:35"
+  fc_media?: number;
+  fc_max?: number;
+  metros?: number;
+  series?: SwimSet[];
+  ejercicios?: GymExerciseMetric[];
+}
+
 export interface DayPlan {
   day: string;
   dayName: string;
@@ -70,6 +107,8 @@ export interface TrainingSession {
   day_name: string;
   week_number: number;
   session_type: SessionType;
+  subtype?: SessionSubtype;
+  metrics?: SessionMetrics;
   duration_min?: number;
   rpe_perceived?: number;
   fatigue?: number;

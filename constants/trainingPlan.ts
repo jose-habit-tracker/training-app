@@ -1,4 +1,4 @@
-import { WeekPlan, DayPlan, ExerciseTemplate, SessionType } from '../types';
+import { WeekPlan, DayPlan, ExerciseTemplate, SessionType, SessionSubtype, SportGroup } from '../types';
 
 export const WEEKLY_STRUCTURE: DayPlan[] = [
   {
@@ -469,4 +469,33 @@ export const SESSION_LABELS: Record<string, string> = {
   hyrox_simulation: 'Simulación Hyrox',
   rest: 'Descanso',
   active_recovery: 'Recuperación',
+};
+
+// ─── Subtipos de sesión (formulario adaptativo + coach) ─────────────────────
+
+export const SUBTYPE_LABELS: Record<SessionSubtype, string> = {
+  easy: 'Rodaje suave',
+  long_run: 'Tirada larga',
+  intervals: 'Series / Intervalos',
+  threshold: 'Umbral',
+  race: 'Carrera / Competición',
+  swim_technique: 'Técnica',
+  swim_sets: 'Series natación',
+  strength: 'Fuerza',
+  hyrox_circuit: 'Circuito Hyrox',
+  recovery: 'Recuperación',
+};
+
+export function sportGroupOf(type: SessionType): SportGroup {
+  if (type.startsWith('running')) return 'run';
+  if (type === 'swimming') return 'swim';
+  if (type.startsWith('gym') || type === 'hyrox_simulation') return 'gym';
+  return 'other';
+}
+
+export const SUBTYPES_BY_GROUP: Record<SportGroup, SessionSubtype[]> = {
+  run: ['easy', 'long_run', 'intervals', 'threshold', 'race'],
+  swim: ['swim_technique', 'swim_sets'],
+  gym: ['strength', 'hyrox_circuit'],
+  other: ['recovery'],
 };
