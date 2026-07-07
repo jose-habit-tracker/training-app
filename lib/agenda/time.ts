@@ -6,6 +6,7 @@ export function parseClock(raw: string): number | null {
   const h = hasHours ? Number(m[1]) : 0;
   const min = hasHours ? Number(m[2]) : Number(m[1]);
   const sec = hasHours ? Number(m[3]) : Number(m[2]);
+  // Más de 59 minutos se expresa siempre como h:mm:ss — "75:00" es inválido a propósito.
   if (min > 59 || sec > 59) return null;
   return h * 3600 + min * 60 + sec;
 }

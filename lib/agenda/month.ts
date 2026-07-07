@@ -14,7 +14,7 @@ export function monthGrid(year: number, month: number): MonthCell[][] {
   const weeks: MonthCell[][] = [];
   let cursor = start;
 
-  while (cursor.getUTCMonth() === month || weeks.length === 0 || cursor <= new Date(Date.UTC(year, month + 1, 0))) {
+  while (weeks.length === 0 || cursor.getUTCMonth() === month) {
     const week: MonthCell[] = [];
     for (let i = 0; i < 7; i++) {
       week.push({ iso: iso(cursor), day: cursor.getUTCDate(), inMonth: cursor.getUTCMonth() === month });
@@ -26,8 +26,10 @@ export function monthGrid(year: number, month: number): MonthCell[][] {
   return weeks;
 }
 
+// Array estático porque Intl en Hermes (builds nativas de Expo) puede venir
+// incompleto y toLocaleDateString no garantiza los nombres de mes en español.
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
 export function monthLabel(year: number, month: number): string {
-  return new Date(Date.UTC(year, month, 1)).toLocaleDateString('es-ES', {
-    month: 'long', year: 'numeric', timeZone: 'UTC',
-  });
+  return `${MONTHS[month]} de ${year}`;
 }
