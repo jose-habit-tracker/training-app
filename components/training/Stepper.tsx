@@ -18,6 +18,7 @@ export function Stepper({ label, value, onChange, min = 1, max = 99 }: StepperPr
 
   const bump = (delta: number) => {
     tapLight();
+    // Con valor vacío parte de min - delta para que el primer toque aterrice en min.
     const next = Math.min(max, Math.max(min, (value ?? min - delta) + delta));
     onChange(next);
   };
@@ -26,7 +27,13 @@ export function Stepper({ label, value, onChange, min = 1, max = 99 }: StepperPr
     <View style={s.container}>
       <Text style={[s.label, { color: colors.text3 }]}>{label.toUpperCase()}</Text>
       <View style={[s.row, { backgroundColor: colors.glassBg, borderColor: colors.border }]}>
-        <TouchableOpacity style={[s.btn, { backgroundColor: colors.card }]} onPress={() => bump(-1)} hitSlop={6}>
+        <TouchableOpacity
+          style={[s.btn, { backgroundColor: colors.card }]}
+          onPress={() => bump(-1)}
+          hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+          accessibilityRole="button"
+          accessibilityLabel="Restar"
+        >
           <Text style={[s.btnText, { color: colors.accent }]}>−</Text>
         </TouchableOpacity>
         <TextInput
@@ -40,7 +47,13 @@ export function Stepper({ label, value, onChange, min = 1, max = 99 }: StepperPr
           placeholder="—"
           placeholderTextColor={colors.text3}
         />
-        <TouchableOpacity style={[s.btn, { backgroundColor: colors.card }]} onPress={() => bump(1)} hitSlop={6}>
+        <TouchableOpacity
+          style={[s.btn, { backgroundColor: colors.card }]}
+          onPress={() => bump(1)}
+          hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+          accessibilityRole="button"
+          accessibilityLabel="Sumar"
+        >
           <Text style={[s.btnText, { color: colors.accent }]}>+</Text>
         </TouchableOpacity>
       </View>

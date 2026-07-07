@@ -88,14 +88,28 @@ export function ExerciseAccordion({
 
           <View style={s.actions}>
             <View style={s.moveButtons}>
-              <TouchableOpacity onPress={() => onMove(-1)} disabled={index === 0} hitSlop={6}>
+              <TouchableOpacity
+                onPress={() => onMove(-1)}
+                disabled={index === 0}
+                hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Subir ejercicio"
+                accessibilityState={{ disabled: index === 0 }}
+              >
                 <Ionicons name="arrow-up-circle-outline" size={22} color={index === 0 ? colors.border : colors.text3} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => onMove(1)} disabled={index === total - 1} hitSlop={6}>
+              <TouchableOpacity
+                onPress={() => onMove(1)}
+                disabled={index === total - 1}
+                hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Bajar ejercicio"
+                accessibilityState={{ disabled: index === total - 1 }}
+              >
                 <Ionicons name="arrow-down-circle-outline" size={22} color={index === total - 1 ? colors.border : colors.text3} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={onRemove} hitSlop={6}>
+            <TouchableOpacity onPress={onRemove} hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
               <Text style={[s.remove, { color: colors.danger }]}>Eliminar</Text>
             </TouchableOpacity>
           </View>

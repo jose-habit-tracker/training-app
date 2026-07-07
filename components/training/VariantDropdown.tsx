@@ -27,6 +27,8 @@ export function VariantDropdown({ options, value, onChange }: VariantDropdownPro
         style={[s.trigger, { backgroundColor: colors.glassBg, borderColor: colors.border }]}
         onPress={() => setOpen(true)}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Cambiar variante"
       >
         <Text style={[s.value, { color: colors.text }]}>{SESSION_LABELS[value] ?? value}</Text>
         <Ionicons name="chevron-down" size={16} color={colors.text3} />
