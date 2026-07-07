@@ -62,8 +62,8 @@ export default function EditDayScreen() {
 
   const requestType = useCallback((type: SessionType) => {
     if (!form || form.sessionType === type) return;
-    const hasEdits = (form.exercises ?? []).length > 0;
-    if (hasEdits) confirmReplace(() => applyType(type));
+    const hasExercises = (form.exercises ?? []).length > 0;
+    if (hasExercises) confirmReplace(() => applyType(type));
     else applyType(type);
   }, [form, applyType]);
 
@@ -80,10 +80,13 @@ export default function EditDayScreen() {
   }, []);
 
   const addExercise = useCallback(() => {
-    const newId = `${form?.day}-${Date.now()}`;
-    setForm((f) => f && ({ ...f, exercises: [...(f.exercises ?? []), { id: newId, name: '' }] }));
-    setExpandedId(newId);
-  }, [form?.day]);
+    setForm((f) => {
+      if (!f) return f;
+      const newId = `${f.day}-${Date.now()}-${f.exercises?.length ?? 0}`;
+      setExpandedId(newId);
+      return { ...f, exercises: [...(f.exercises ?? []), { id: newId, name: '' }] };
+    });
+  }, []);
 
   const removeExercise = useCallback((id: string) => {
     setForm((f) => f && ({ ...f, exercises: (f.exercises ?? []).filter((ex) => ex.id !== id) }));
