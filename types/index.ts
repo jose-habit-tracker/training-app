@@ -159,3 +159,28 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Agenda: eventos y carreras ──────────────────────────────────────────────
+
+export interface RaceDetails {
+  distance_km: number;
+  target_time?: string;   // "1:29:59" — parsing en lib/agenda/time.ts
+  result_time?: string;
+  position?: number;
+  feelings?: string;
+  ai_analysis?: string;
+  is_goal?: boolean;
+}
+
+export interface CalendarEvent {
+  id: string;
+  user_id: string;
+  title: string;
+  date: string;           // ISO yyyy-mm-dd
+  end_date?: string | null;
+  kind: 'race' | 'event';
+  icon?: string | null;
+  notes?: string | null;
+  race?: RaceDetails | null;
+  created_at?: string;
+}
