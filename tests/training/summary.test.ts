@@ -30,4 +30,16 @@ describe('sessionTotals', () => {
   it('lista vacía devuelve cadena vacía', () => {
     expect(sessionTotals([], 'swim')).toBe('');
   });
+  it('run convierte a km con coma decimal a partir de 1000 m', () => {
+    expect(sessionTotals([ex({ sets: 6, distance: '400m' })], 'run')).toBe('2,4 km totales');
+  });
+  it('convierte distancias en km a metros', () => {
+    expect(sessionTotals([ex({ distance: '1.5km' })], 'swim')).toBe('1.500 m totales');
+  });
+  it('distancia no parseable cae al conteo de bloques', () => {
+    expect(sessionTotals([ex({ distance: 'por sensaciones' })], 'swim')).toBe('1 bloques');
+  });
+  it('run por debajo de 1000 m se queda en metros', () => {
+    expect(sessionTotals([ex({ distance: '999m' })], 'run')).toBe('999 m totales');
+  });
 });
