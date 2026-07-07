@@ -40,7 +40,7 @@ export function useEvents() {
     return { id: data.id as string, error: null };
   }, [refetch]);
 
-  const updateEvent = useCallback(async (id: string, patch: Partial<CalendarEvent>): Promise<string | null> => {
+  const updateEvent = useCallback(async (id: string, patch: Partial<Pick<CalendarEvent, 'title' | 'date' | 'end_date' | 'kind' | 'icon' | 'notes' | 'race'>>): Promise<string | null> => {
     const { error: err } = await supabase.from('events').update(patch).eq('id', id);
     if (err) return err.message;
     await refetch();
@@ -62,21 +62,26 @@ export function useEvents() {
     if (readErr || !target || !(target as CalendarEvent).race) return readErr?.message ?? 'La carrera no existe';
     const targetEvent = target as CalendarEvent;
 
-    const { data: others } = await supabase
-      .from('events').select('*').eq('kind', 'race').neq('id', id);
-    for (const e of (others ?? []) as CalendarEvent[]) {
-      if (e.race?.is_goal) {
-        const err = (await supabase.from('events').update({ race: { ...e.race, is_goal: false } }).eq('id', e.id)).error;
-        if (err) return err.message;
-      }
-    }
+    // Marca primero el objetivo y desmarca después: si algo falla a medias,
+    // nunca quedan cero carreras objetivo (dos transitorias es mejor que ninguna).
     const { error: err } = await supabase
       .from('events').update({ race: { ...targetEvent.race!, is_goal: true } }).eq('id', id);
     if (err) return err.message;
 
+    const { data: others, error: othersErr } = await supabase
+      .from('events').select('*').eq('kind', 'race').neq('id', id);
+    if (othersErr) return othersErr.message;
+    for (const e of (others ?? []) as CalendarEvent[]) {
+      if (e.race?.is_goal) {
+        const unsetErr = (await supabase.from('events').update({ race: { ...e.race, is_goal: false } }).eq('id', e.id)).error;
+        if (unsetErr) return unsetErr.message;
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('training_plans').update({ goal_race_date: targetEvent.date }).eq('user_id', user.id);
+      const { error: planErr } = await supabase.from('training_plans').update({ goal_race_date: targetEvent.date }).eq('user_id', user.id);
+      if (planErr) return planErr.message;
     }
     await refetch();
     return null;
