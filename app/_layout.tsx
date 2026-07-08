@@ -47,16 +47,19 @@ const eb = StyleSheet.create({
 function NavigationGuard() {
   const { session, initialized } = useAuth();
   const { loading, hasPlan } = usePlan();
+  // Depender del id (no del objeto session) evita re-disparar la redirección
+  // en cada TOKEN_REFRESHED y sacar al usuario de un onboarding relanzado.
+  const userId = session?.user?.id;
 
   useEffect(() => {
     if (!initialized) return;
-    if (!session) {
+    if (!userId) {
       router.replace('/(auth)/login');
       return;
     }
     if (loading) return;
     router.replace(hasPlan ? '/(tabs)/hoy' : '/onboarding');
-  }, [session, initialized, loading, hasPlan]);
+  }, [userId, initialized, loading, hasPlan]);
 
   return null;
 }

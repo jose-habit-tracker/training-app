@@ -40,7 +40,7 @@ interface ThreadItem {
 
 export default function HoyScreen() {
   const { colors } = useTheme();
-  const { weeks, currentWeekIndex, save } = usePlan();
+  const { weeks, currentWeekIndex, save, setWeekIndex } = usePlan();
   const days = weeks[currentWeekIndex]?.days ?? [];
   const { plan: todayPlan, weekNumber, dayKey, refresh } = useToday();
   const { sessions: weekSessions, refetch: refetchWeek } = useWeekSessions();
@@ -185,7 +185,12 @@ export default function HoyScreen() {
     if (!item?.proposal) return;
     setItems((prev) => prev.map((it, i) => (i === index ? { ...it, proposalStatus: 'applying' } : it)));
 
-    const error = await executeProposal(item.proposal, { days, savePlan: save });
+    // Ancla el guardado a la semana actual: la selección de la pestaña Semana
+    // no debe decidir sobre qué semana escribe el coach.
+    const error = await executeProposal(item.proposal, {
+      days,
+      savePlan: (next) => save(next, currentWeekIndex),
+    });
 
     if (error) {
       setItems((prev) => prev.map((it, i) =>
@@ -199,7 +204,7 @@ export default function HoyScreen() {
     await persist(confirmation);
     refresh();
     refetchWeek();
-  }, [items, days, save, persist, refresh, refetchWeek]);
+  }, [items, days, save, currentWeekIndex, persist, refresh, refetchWeek]);
 
   // ── Editar propuesta → formulario pre-rellenado ─────────────────────────────
   const handleEdit = useCallback((index: number) => {
@@ -253,7 +258,10 @@ export default function HoyScreen() {
                   micSupported={recorder.supported}
                   onRecord={() => { void recorder.start(); }}
                   onManualLog={() => router.push({ pathname: '/log/[day]', params: { day: dayKey } })}
-                  onViewPlan={() => router.push({ pathname: '/plan/[day]', params: { day: dayKey } })}
+                  onViewPlan={() => {
+                    setWeekIndex(currentWeekIndex);
+                    router.push({ pathname: '/plan/[day]', params: { day: dayKey } });
+                  }}
                 />
               )}
             </View>

@@ -19,7 +19,7 @@ interface PlanContextValue {
   setWeekIndex: (i: number) => void;
   loading: boolean;
   hasPlan: boolean;
-  save: (next: DayPlan[]) => Promise<string | null>;
+  save: (next: DayPlan[], targetIndex?: number) => Promise<string | null>;
   replacePlan: (data: PlanDataV2) => Promise<string | null>;
 }
 
@@ -122,10 +122,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     return null;
   }, [session?.user?.id, planId]);
 
-  const save = useCallback(async (next: DayPlan[]): Promise<string | null> => {
+  // targetIndex permite a Hoy escribir en la semana actual aunque el usuario
+  // haya dejado otra semana seleccionada en la pestaña Semana.
+  const save = useCallback(async (next: DayPlan[], targetIndex?: number): Promise<string | null> => {
+    const idx = targetIndex ?? weekIndex;
     const nextData: PlanDataV2 = {
       ...planData,
-      weeks: planData.weeks.map((w, i) => (i === weekIndex ? { ...w, days: next } : w)),
+      weeks: planData.weeks.map((w, i) => (i === idx ? { ...w, days: next } : w)),
     };
     return persist(nextData);
   }, [planData, weekIndex, persist]);
@@ -155,7 +158,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         days,
         weekIndex,
         currentWeekIndex: currentIdx,
-        planFinished: hasPlan && computePlanFinished(startDate, planData.weeks.length),
+        // Solo para planes salidos de la encuesta: a un plan legacy (sin profile)
+        // con start_date antiguo no le aplica el «plan completado».
+        planFinished: hasPlan && planData.profile != null && computePlanFinished(startDate, planData.weeks.length),
         setWeekIndex,
         loading,
         hasPlan,
