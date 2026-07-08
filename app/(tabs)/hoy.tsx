@@ -15,7 +15,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { usePlan } from '../../lib/PlanContext';
-import { useToday, getPhaseLabel } from '../../hooks/useTraining';
+import { useToday, useWeekSessions, getPhaseLabel } from '../../hooks/useTraining';
 import { useRecorder } from '../../hooks/useRecorder';
 import { buildGreeting } from '../../lib/coach/greeting';
 import { buildCoachSystemPrompt, DAY_MAP } from '../../lib/coach/context';
@@ -27,6 +27,7 @@ import { MessageBubble } from '../../components/coach/MessageBubble';
 import { ProposalCard, ProposalStatus } from '../../components/coach/ProposalCard';
 import { ActionChips } from '../../components/coach/ActionChips';
 import { CoachInput } from '../../components/coach/CoachInput';
+import { ProgressRing } from '../../components/ui/ProgressRing';
 
 interface ThreadItem {
   role: 'user' | 'assistant';
@@ -40,6 +41,7 @@ export default function HoyScreen() {
   const { colors } = useTheme();
   const { days, save } = usePlan();
   const { plan: todayPlan, weekNumber, dayKey, refresh } = useToday();
+  const { sessions: weekSessions, refetch: refetchWeek } = useWeekSessions();
   const recorder = useRecorder();
 
   const [items, setItems] = useState<ThreadItem[]>([]);
@@ -53,6 +55,7 @@ export default function HoyScreen() {
 
   const todayIso = new Date().toISOString().split('T')[0];
   const planToday = days.find((d) => d.day === DAY_MAP[new Date().getDay()]) ?? todayPlan;
+  const plannedThisWeek = days.filter((d) => d.sessionType !== 'rest').length;
 
   // ── Hilo del día: get-or-create en `conversations` + historial ───────────────
   useEffect(() => {
@@ -192,7 +195,8 @@ export default function HoyScreen() {
     setItems((prev) => [...prev, { role: 'assistant', content: confirmation.content }]);
     await persist(confirmation);
     refresh();
-  }, [items, days, save, persist, refresh]);
+    refetchWeek();
+  }, [items, days, save, persist, refresh, refetchWeek]);
 
   // ── Editar propuesta → formulario pre-rellenado ─────────────────────────────
   const handleEdit = useCallback((index: number) => {
@@ -232,10 +236,13 @@ export default function HoyScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              <View style={[s.weekChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-                <Text style={[s.weekChipText, { color: colors.text3 }]}>
-                  Semana {weekNumber} · {getPhaseLabel(weekNumber)}
-                </Text>
+              <View style={s.headerRow}>
+                <View style={[s.weekChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+                  <Text style={[s.weekChipText, { color: colors.text3 }]}>
+                    Semana {weekNumber} · {getPhaseLabel(weekNumber)}
+                  </Text>
+                </View>
+                <ProgressRing done={weekSessions.length} total={plannedThisWeek} size={48} />
               </View>
               <MessageBubble role="assistant" content={greeting} />
               {showChips && (
@@ -286,13 +293,17 @@ const s = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: Spacing.lg, paddingBottom: Spacing.gapSm },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.base,
+  },
   weekChip: {
-    alignSelf: 'center',
     borderRadius: Radius.pill,
     borderWidth: 1,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.gapXs,
-    marginBottom: Spacing.base,
   },
   weekChipText: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy },
   typing: {

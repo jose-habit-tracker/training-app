@@ -26,6 +26,8 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek } from '../../hooks/useTraining';
 import { usePlan } from '../../lib/PlanContext';
+import { Confetti } from '../../components/ui/Confetti';
+import { tapSuccess } from '../../lib/haptics';
 
 // ─── System prompt builder ────────────────────────────────────────────────────
 function buildFeedbackPrompt(
@@ -209,6 +211,7 @@ export default function LogDayScreen() {
   const [saving, setSaving] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
   const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
 
   function toggleExercise(id: string) {
     setCompleted((prev) => {
@@ -264,6 +267,8 @@ export default function LogDayScreen() {
       }
 
       setSavedSessionId(session.id);
+      setCelebrate((c) => c + 1);
+      tapSuccess();
 
       // 2. Reemplaza los logs de ejercicios de esta sesión
       if (plan.exercises && plan.exercises.length > 0) {
@@ -444,6 +449,7 @@ export default function LogDayScreen() {
           </View>
         )}
       </ScrollView>
+      <Confetti trigger={celebrate} />
     </SafeAreaView>
   );
 }
