@@ -40,7 +40,7 @@ export default function AgendaScreen() {
 
   const phases = useMemo(() => {
     if (!goalRace) return [];
-    // start del plan: 12 semanas antes por defecto si la fila del plan no está cargada aquí.
+    // start del plan: 15 semanas antes por defecto (span Base→Race) si la fila del plan no está cargada aquí.
     const start = new Date(new Date(`${goalRace.date}T00:00:00`).getTime() - 15 * 7 * 86_400_000);
     return computePhases(start.toISOString().split('T')[0], goalRace.date);
   }, [goalRace]);
@@ -51,6 +51,7 @@ export default function AgendaScreen() {
     const plannedPerWeek = days.filter((d) => d.sessionType !== 'rest').length;
     const weeksElapsed = Math.max(0, Math.min(
       (Date.now() - new Date(`${start}T00:00:00`).getTime()) / (7 * 86_400_000),
+      // Tope de seguridad: evita contar semanas absurdas si las fechas están mal configuradas.
       phases.length * 20,
     ));
     const completed = sessions.filter((s) => s.session_date >= start).length;
@@ -76,7 +77,8 @@ export default function AgendaScreen() {
       savedId = res.id;
     }
     if (!err && savedId && draft.kind === 'race' && draft.race?.is_goal) {
-      await setGoalRace(savedId);
+      const goalErr = await setGoalRace(savedId);
+      if (goalErr) return goalErr;
     }
     return err;
   };
