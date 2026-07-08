@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +17,7 @@ import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan } from '../../types';
 import { Button } from '../../components/ui/Button';
-import { getCurrentWeek, getPhaseLabel, useWeekSessions } from '../../hooks/useTraining';
+import { useWeekSessions } from '../../hooks/useTraining';
 import { useTheme } from '../../hooks/useTheme';
 import { usePlan } from '../../lib/PlanContext';
 
@@ -34,8 +35,7 @@ export default function SemanaScreen() {
   const { colors } = useTheme();
   const reduceMotion = useReduceMotion();
   const todayKey = DAY_MAP[new Date().getDay()];
-  const week = getCurrentWeek();
-  const { days } = usePlan();
+  const { days, weeks, weekIndex, currentWeekIndex, setWeekIndex, planFinished } = usePlan();
   const { sessions: weekSessions } = useWeekSessions();
   const loggedDays = new Set(weekSessions.map((s) => s.day_name.toLowerCase()));
 
@@ -48,11 +48,51 @@ export default function SemanaScreen() {
       >
         {/* Week header */}
         <View style={s.weekHeader}>
-          <Text style={[s.weekTitle, { color: colors.text }]}>Esta semana</Text>
+          <Text style={[s.weekTitle, { color: colors.text }]}>Tu plan</Text>
           <View style={[s.weekBadge, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1 }]}>
-            <Text style={[s.weekBadgeText, { color: colors.text3 }]}>Semana {week} · Fase {getPhaseLabel(week)}</Text>
+            <Text style={[s.weekBadgeText, { color: colors.text3 }]}>
+              Semana {weekIndex + 1} · {weeks[weekIndex]?.focus ?? 'Base'}
+            </Text>
           </View>
         </View>
+
+        <View style={s.weekSelector}>
+          {weeks.map((w, i) => {
+            const active = i === weekIndex;
+            return (
+              <TouchableOpacity
+                key={w.week}
+                style={[
+                  s.weekTab,
+                  {
+                    backgroundColor: active ? colors.accent : colors.glassBg,
+                    borderColor: active ? colors.accent : colors.glassBorder,
+                  },
+                ]}
+                onPress={() => setWeekIndex(i)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.weekTabText, { color: active ? '#fff' : colors.text3 }]}>
+                  S{w.week}{i === currentWeekIndex ? ' ·' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {planFinished && (
+          <View style={[s.finishedCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+            <Text style={[s.finishedText, { color: colors.text }]}>
+              Plan completado 🎉 Rehaz la encuesta para generar el siguiente bloque de 4 semanas.
+            </Text>
+            <Button
+              label="Rehacer encuesta"
+              variant="secondary"
+              fullWidth
+              onPress={() => router.push('/onboarding')}
+            />
+          </View>
+        )}
 
         <View style={s.progressStrip}>
           {days.map((d) => {
@@ -200,6 +240,24 @@ const s = StyleSheet.create({
   editBtn: { marginBottom: Spacing.lg },
   progressStrip: { flexDirection: 'row', gap: Spacing.gapSm, marginBottom: Spacing.lg },
   progressDot: { flex: 1, height: 6, borderRadius: 3 },
+
+  weekSelector: { flexDirection: 'row', gap: Spacing.gapSm, marginBottom: Spacing.lg },
+  weekTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.gapSm,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  weekTabText: { fontSize: FontSize.base, fontWeight: FontWeight.heavy },
+  finishedCard: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.cardPadding,
+    marginBottom: Spacing.lg,
+    gap: Spacing.gapMd,
+  },
+  finishedText: { fontSize: FontSize.md, lineHeight: 20 },
 
   card: {
     borderRadius: Radius.card,
