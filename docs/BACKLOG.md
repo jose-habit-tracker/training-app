@@ -57,6 +57,26 @@ completadas vs plan, RPE/fatiga media, y propuesta de ajustes para la siguiente 
 (vía `adjust_plan` con confirmación). Trigger client-side al abrir (comprobar si ya
 existe el resumen de esa semana en `ai_conversations`), no cron.
 
+## P2.5 — Follow-ups de la Agenda (review final 2026-07-08, no bloqueantes)
+
+### A. Fase/cumplimiento con start_date real
+`app/(tabs)/agenda.tsx` aproxima el inicio del plan como «carrera − 15 semanas» en vez
+de leer `training_plans.start_date`. Deriva la barra de fases y el % de cumplimiento de
+la fila real del plan. **Directo.**
+
+### B. Limpiar goal_race_date al desmarcar la carrera objetivo
+`EventModal` sincroniza `training_plans.goal_race_date` al activar el toggle, pero
+desactivarlo no lo limpia. Añadir el camino inverso en `useEvents`. **Directo.**
+
+### C. Unificar UTC vs local en fechas de agenda
+`lib/agenda/phases.ts` usa UTC (`T00:00:00Z`); `agenda.tsx`/`RaceHeroCard` construyen
+fechas locales. Solo afecta en la franja de medianoche; unificar criterio (y de paso el
+`todayIso()` UTC heredado en `lib/coach/context.ts`).
+
+### D. Normalizar distancias hyrox tipo «50m x4»
+`metersOf` no las parsea (hoy es inofensivo: hyrox muestra nº de ejercicios). Convertir
+seeds a `sets + distance` como se hizo con swim/run en `3f6cc4b`.
+
 ## P3 — Endurecimiento
 
 ### 8. Cifrar las keys BYOK en reposo

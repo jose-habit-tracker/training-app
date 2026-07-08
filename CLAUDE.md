@@ -45,7 +45,7 @@ app/
   _layout.tsx          # Root layout con auth guard
 components/
   ui/                  # Componentes UI reutilizables
-  training/            # Componentes específicas de entrenamiento (editor adaptativo por deporte)
+  training/            # Componentes específicos de entrenamiento (editor adaptativo por deporte)
   agenda/              # Calendario, tarjeta de carrera, modales de evento/resultado
 lib/
   supabase.ts          # Cliente Supabase con SecureStore
