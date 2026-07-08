@@ -55,6 +55,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="agenda"
+        options={{
+          title: 'Agenda',
+          headerTitle: 'Agenda',
+          tabBarIcon: ({ color }) => <TabIcon name="flag" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="chat"
         options={{
           title: 'Coach IA',
