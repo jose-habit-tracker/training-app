@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Text as SvgText } from 'react-native-svg';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
@@ -17,6 +18,7 @@ import { TrainingSession, SessionType } from '../../types';
 import { StatGrid, StatCard } from '../../components/ui/Card';
 import { useSessions, useWeekSessions } from '../../hooks/useTraining';
 import { useTheme } from '../../hooks/useTheme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 // ─── Filter types ─────────────────────────────────────────────────────────────
 type Filter = 'all' | 'running' | 'gym' | 'swimming' | 'hyrox';
@@ -190,6 +192,7 @@ function Chip({ label, color, bg }: { label: string; color: string; bg: string }
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function HistorialScreen() {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const [activeFilter, setActiveFilter] = useState<Filter>('all');
 
   const { sessions, loading, error, refetch } = useSessions(40);
@@ -317,8 +320,13 @@ export default function HistorialScreen() {
             <Text style={[s.sectionTitle, { color: colors.text3 }]}>
               SESIONES RECIENTES ({filtered.length})
             </Text>
-            {filtered.map((session) => (
-              <SessionCard key={session.id} session={session} colors={colors} />
+            {filtered.map((session, i) => (
+              <Animated.View
+                key={session.id}
+                entering={reduceMotion ? undefined : FadeInDown.delay(i * 40).duration(250)}
+              >
+                <SessionCard session={session} colors={colors} />
+              </Animated.View>
             ))}
           </>
         )}

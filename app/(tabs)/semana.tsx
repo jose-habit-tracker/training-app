@@ -7,6 +7,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { SessionColors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
@@ -30,6 +33,7 @@ const DAY_MAP: Record<number, string> = {
 
 export default function SemanaScreen() {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const todayKey = DAY_MAP[new Date().getDay()];
   const week = getCurrentWeek();
   const { days } = usePlan();
@@ -81,8 +85,15 @@ export default function SemanaScreen() {
           style={s.editBtn}
         />
 
-        {days.map((day) => (
-          <DayCard key={day.day} day={day} isToday={day.day === todayKey} colors={colors} />
+        {days.map((day, i) => (
+          <DayCard
+            key={day.day}
+            day={day}
+            isToday={day.day === todayKey}
+            colors={colors}
+            index={i}
+            reduceMotion={reduceMotion}
+          />
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -93,15 +104,20 @@ function DayCard({
   day,
   isToday,
   colors,
+  index,
+  reduceMotion,
 }: {
   day: DayPlan;
   isToday: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
+  index: number;
+  reduceMotion: boolean;
 }) {
   const accentColor = SessionColors[day.sessionType] ?? colors.accent;
 
   return (
-    <View
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.delay(index * 40).duration(250)}
       style={[
         s.card,
         {
@@ -111,48 +127,55 @@ function DayCard({
         },
       ]}
     >
+      <LinearGradient
+        colors={[`${accentColor}26`, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={s.cardGradient}
+      >
+        <View style={s.cardHeader}>
+          <View style={s.cardLeft}>
+            <Text
+              style={[
+                s.dayName,
+                { color: isToday ? accentColor : colors.text3 },
+              ]}
+            >
+              {day.dayName.toUpperCase()}
+            </Text>
+            <Text style={[s.sessionTitle, { color: colors.text }]}>{day.title}</Text>
+          </View>
+
+          <View style={s.cardRight}>
+            <View style={[s.colorDot, { backgroundColor: accentColor }]} />
+            <Text style={[s.duration, { color: colors.text3 }]}>{day.duration} min</Text>
+          </View>
+        </View>
+
+        <View style={[s.typePill, { backgroundColor: accentColor + '18' }]}>
+          <Text style={[s.typeText, { color: accentColor }]}>
+            {SESSION_LABELS[day.sessionType]}
+          </Text>
+        </View>
+
+        <Text style={[s.description, { color: colors.text3 }]} numberOfLines={2}>
+          {day.description}
+        </Text>
+
+        {day.exercises && day.exercises.length > 0 && (
+          <Text style={[s.exerciseCount, { color: colors.text3 }]}>
+            {day.exercises.length} ejercicios
+          </Text>
+        )}
+      </LinearGradient>
+
       {/* TODAY badge */}
       {isToday && (
         <View style={[s.todayBadge, { backgroundColor: accentColor }]}>
           <Text style={s.todayText}>HOY</Text>
         </View>
       )}
-
-      <View style={s.cardHeader}>
-        <View style={s.cardLeft}>
-          <Text
-            style={[
-              s.dayName,
-              { color: isToday ? accentColor : colors.text3 },
-            ]}
-          >
-            {day.dayName.toUpperCase()}
-          </Text>
-          <Text style={[s.sessionTitle, { color: colors.text }]}>{day.title}</Text>
-        </View>
-
-        <View style={s.cardRight}>
-          <View style={[s.colorDot, { backgroundColor: accentColor }]} />
-          <Text style={[s.duration, { color: colors.text3 }]}>{day.duration} min</Text>
-        </View>
-      </View>
-
-      <View style={[s.typePill, { backgroundColor: accentColor + '18' }]}>
-        <Text style={[s.typeText, { color: accentColor }]}>
-          {SESSION_LABELS[day.sessionType]}
-        </Text>
-      </View>
-
-      <Text style={[s.description, { color: colors.text3 }]} numberOfLines={2}>
-        {day.description}
-      </Text>
-
-      {day.exercises && day.exercises.length > 0 && (
-        <Text style={[s.exerciseCount, { color: colors.text3 }]}>
-          {day.exercises.length} ejercicios
-        </Text>
-      )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -181,9 +204,11 @@ const s = StyleSheet.create({
 
   card: {
     borderRadius: Radius.card,
-    padding: Spacing.cardPadding,
     marginBottom: Spacing.gapMd,
     overflow: 'hidden',
+  },
+  cardGradient: {
+    padding: Spacing.cardPadding,
   },
   todayBadge: {
     position: 'absolute',
