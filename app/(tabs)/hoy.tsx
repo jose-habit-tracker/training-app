@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { usePlan } from '../../lib/PlanContext';
 import { useToday, useWeekSessions, getPhaseLabel } from '../../hooks/useTraining';
 import { useRecorder } from '../../hooks/useRecorder';
+import { useEvents } from '../../hooks/useEvents';
 import { buildGreeting } from '../../lib/coach/greeting';
 import { buildCoachSystemPrompt, DAY_MAP } from '../../lib/coach/context';
 import { askCoach, transcribeAudio } from '../../lib/coach/api';
@@ -43,6 +44,7 @@ export default function HoyScreen() {
   const { plan: todayPlan, weekNumber, dayKey, refresh } = useToday();
   const { sessions: weekSessions, refetch: refetchWeek } = useWeekSessions();
   const recorder = useRecorder();
+  const { events } = useEvents();
 
   const [items, setItems] = useState<ThreadItem[]>([]);
   const [recentSessions, setRecentSessions] = useState<TrainingSession[]>([]);
@@ -137,7 +139,7 @@ export default function HoyScreen() {
       const historyMessages: ChatMessage[] = [...items, userMsg]
         .slice(-10)
         .map((i) => ({ role: i.role, content: i.content }));
-      const systemPrompt = buildCoachSystemPrompt(days, recentSessions);
+      const systemPrompt = buildCoachSystemPrompt(days, recentSessions, events);
       const reply = await askCoach([
         { role: 'system', content: systemPrompt },
         ...historyMessages,
@@ -154,7 +156,7 @@ export default function HoyScreen() {
     } finally {
       setBusy(false);
     }
-  }, [items, days, recentSessions, persist]);
+  }, [items, days, recentSessions, events, persist]);
 
   // ── Audio → transcripción → coach ────────────────────────────────────────────
   const handleAudio = useCallback(async (blob: Blob) => {

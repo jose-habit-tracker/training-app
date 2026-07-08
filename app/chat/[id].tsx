@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { usePlan } from '../../lib/PlanContext';
 import { applyProposedDays } from '../../lib/coach/planMerge';
 import { buildChatSystemPrompt } from '../../lib/coach/context';
+import { useEvents } from '../../hooks/useEvents';
 
 const GREETING: ChatMessage = {
   role: 'assistant',
@@ -62,6 +63,7 @@ export default function ConversationScreen() {
   const { colors } = useTheme();
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const { days, save } = usePlan();
+  const { events } = useEvents();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,8 +75,8 @@ export default function ConversationScreen() {
   const userIdRef = useRef<string | null>(null);
 
   const systemPrompt = useMemo(
-    () => buildChatSystemPrompt(days, recentSessions),
-    [days, recentSessions],
+    () => buildChatSystemPrompt(days, recentSessions, events),
+    [days, recentSessions, events],
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { DayPlan, TrainingSession } from '../../types';
+import { CalendarEvent, DayPlan, TrainingSession } from '../../types';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { getCurrentWeek } from '../../hooks/useTraining';
 
@@ -7,8 +7,31 @@ export const DAY_MAP: Record<number, string> = {
   4: 'thursday', 5: 'friday', 6: 'saturday',
 };
 
+// ─── Carreras próximas + último resultado, para que el coach tenga en cuenta la cuenta atrás ──
+function racesContext(events: CalendarEvent[]): string {
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = events
+    .filter((e) => e.kind === 'race' && e.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 3)
+    .map((e) => {
+      const days = Math.ceil((new Date(`${e.date}T00:00:00`).getTime() - Date.now()) / 86_400_000);
+      const goal = e.race?.is_goal ? ' [OBJETIVO PRINCIPAL]' : '';
+      const target = e.race?.target_time ? `, objetivo ${e.race.target_time}` : '';
+      return `• ${e.title} (${e.race?.distance_km} km, ${e.date}, faltan ${days} días${target})${goal}`;
+    });
+  const lastResult = events
+    .filter((e) => e.kind === 'race' && e.race?.result_time)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+  if (upcoming.length === 0 && !lastResult) return '';
+  return `\nCARRERAS DEL ATLETA:\n${upcoming.join('\n') || 'Sin carreras próximas.'}${
+    lastResult ? `\nÚltimo resultado: ${lastResult.title} — ${lastResult.race?.result_time} (${lastResult.race?.distance_km} km).` : ''
+  }\nTen en cuenta la cuenta atrás (taper, carga) al aconsejar.\n`;
+}
+
 // ─── Build system prompt with recent session context ──────────────────────────
-export function buildChatSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): string {
+export function buildChatSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[], events: CalendarEvent[] = []): string {
   const weekNumber = getCurrentWeek();
 
   const now = new Date();
@@ -55,7 +78,7 @@ No deduzcas el día por tu cuenta; usa siempre esta fecha como "hoy".
 
 ÚLTIMAS SESIONES REGISTRADAS:
 ${sessionSummary}
-
+${racesContext(events)}
 PLAN COMPLETO ACTUAL DEL ATLETA (JSON, fuente de verdad — incluye ejercicios, calentamiento, enfriamiento y notas de cada día):
 ${planJson}
 
@@ -78,7 +101,7 @@ INSTRUCCIONES:
 
 // Contexto compartido (fecha, plan del día, últimas sesiones, plan JSON) para el
 // prompt del coach de la home, que actúa vía tools en lugar de bloques ```plan.
-export function buildCoachSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[]): string {
+export function buildCoachSystemPrompt(days: DayPlan[], recentSessions: TrainingSession[], events: CalendarEvent[] = []): string {
   const weekNumber = getCurrentWeek();
   const now = new Date();
   const todayIso = now.toISOString().split('T')[0];
@@ -118,7 +141,7 @@ No deduzcas el día por tu cuenta; usa siempre esta fecha como "hoy".
 
 ÚLTIMAS SESIONES REGISTRADAS:
 ${sessionSummary}
-
+${racesContext(events)}
 PLAN COMPLETO ACTUAL (JSON, fuente de verdad):
 ${planJson}
 
