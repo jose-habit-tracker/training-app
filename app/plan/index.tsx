@@ -14,6 +14,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { usePlan } from '../../lib/PlanContext';
+import { Button } from '../../components/ui/Button';
 
 export default function PlanListScreen() {
   const { colors } = useTheme();
@@ -50,6 +51,13 @@ export default function PlanListScreen() {
             </TouchableOpacity>
           );
         })}
+
+        <Button
+          label="Rehacer encuesta y regenerar plan"
+          variant="ghost"
+          fullWidth
+          onPress={() => router.push('/onboarding')}
+        />
       </ScrollView>
     </SafeAreaView>
   );

@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
-import { PlanProvider } from '../lib/PlanContext';
+import { PlanProvider, usePlan } from '../lib/PlanContext';
 import { ThemeProvider } from '../lib/ThemeContext';
 import { useTheme } from '../hooks/useTheme';
 
@@ -46,11 +46,20 @@ const eb = StyleSheet.create({
 
 function NavigationGuard() {
   const { session, initialized } = useAuth();
+  const { loading, hasPlan } = usePlan();
+  // Depender del id (no del objeto session) evita re-disparar la redirección
+  // en cada TOKEN_REFRESHED y sacar al usuario de un onboarding relanzado.
+  const userId = session?.user?.id;
 
   useEffect(() => {
     if (!initialized) return;
-    router.replace(session ? '/(tabs)/hoy' : '/(auth)/login');
-  }, [session, initialized]);
+    if (!userId) {
+      router.replace('/(auth)/login');
+      return;
+    }
+    if (loading) return;
+    router.replace(hasPlan ? '/(tabs)/hoy' : '/onboarding');
+  }, [userId, initialized, loading, hasPlan]);
 
   return null;
 }
@@ -73,6 +82,7 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="onboarding" />
               <Stack.Screen
                 name="log/[day]"
                 options={{
