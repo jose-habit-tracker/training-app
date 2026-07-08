@@ -15,7 +15,6 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { FontSize, FontWeight } from '../../constants/typography';
 import { SESSION_LABELS } from '../../constants/trainingPlan';
 import { DayPlan } from '../../types';
-import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { getCurrentWeek, getPhaseLabel, useWeekSessions } from '../../hooks/useTraining';
 import { useTheme } from '../../hooks/useTheme';

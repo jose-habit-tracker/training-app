@@ -35,33 +35,42 @@ app/
   (tabs)/
     hoy.tsx            # Entrenamiento del día actual
     semana.tsx         # Vista semanal de todos los días
+    agenda.tsx         # Carreras, cuenta atrás y calendario de eventos
     chat.tsx           # Chat con Coach IA (Groq)
     historial.tsx      # Historial y estadísticas
     _layout.tsx        # Tab navigator con Ionicons
+  plan/
+    index.tsx
+    [day].tsx          # Editor adaptativo por deporte
   _layout.tsx          # Root layout con auth guard
 components/
   ui/                  # Componentes UI reutilizables
-  training/            # Componentes específicos de entrenamiento
+  training/            # Componentes específicas de entrenamiento (editor adaptativo por deporte)
+  agenda/              # Calendario, tarjeta de carrera, modales de evento/resultado
 lib/
   supabase.ts          # Cliente Supabase con SecureStore
   groq.ts              # askGroq() + COACH_SYSTEM_PROMPT
-hooks/                 # Custom hooks
+  agenda/              # Fases, tiempos, PB y calendario mensual
+  training/            # Campos por deporte y resúmenes de sesión
+hooks/                 # Custom hooks (useEvents, useReduceMotion, ...)
 types/
   index.ts             # Tipos TypeScript completos
 constants/
   colors.ts            # Sistema de diseño Apple (dark mode)
   trainingPlan.ts      # Plan 7 días completo
 supabase/
-  schema.sql           # 5 tablas con RLS policies
+  schema.sql           # 6 tablas con RLS policies
+  migrations/          # Migraciones incrementales sobre schema.sql
 ```
 
 ## Base de datos (Supabase)
-5 tablas con RLS activado:
+6 tablas con RLS activado:
 1. `training_plans` — plan del usuario (jsonb con semanas)
 2. `training_sessions` — sesiones completadas con RPE/fatiga
 3. `exercise_logs` — logs por ejercicio
 4. `ai_conversations` — historial del chat con IA
 5. `user_invites` — sistema de invitaciones
+6. `events` — eventos del calendario y carreras (jsonb `race` con objetivo/resultado/análisis)
 
 ## Plan de entrenamiento (7 días)
 | Día | Sesión | Duración |
