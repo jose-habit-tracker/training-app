@@ -95,7 +95,7 @@ export interface TrainingPlan {
   current_week: number;
   start_date: string;
   goal_race_date: string;
-  plan_data: WeekPlan[];
+  plan_data: PlanDataV2 | DayPlan[]; // DayPlan[] = formato legacy pre-onboarding
   created_at: string;
 }
 
@@ -183,4 +183,31 @@ export interface CalendarEvent {
   notes?: string | null;
   race?: RaceDetails | null;
   created_at?: string;
+}
+
+// ─── Onboarding y plan v2 ─────────────────────────────────────────────────────
+
+export type SportChoice = 'run' | 'swim' | 'gym' | 'hyrox';
+
+export type OnboardingGoal = 'race' | 'general_fitness' | 'lose_weight' | 'gain_strength';
+
+export type RaceDistanceChoice = '5k' | '10k' | 'half' | 'marathon' | 'hyrox';
+
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface OnboardingAnswers {
+  sports: SportChoice[];
+  goal: OnboardingGoal;
+  raceDistance?: RaceDistanceChoice;
+  raceDate?: string; // ISO yyyy-mm-dd
+  daysPerWeek: number; // 3-7
+  level: ExperienceLevel;
+}
+
+// plan_data v2: objeto con perfil + 4 semanas. El formato legacy (DayPlan[])
+// se normaliza en memoria en lib/training/planData.ts.
+export interface PlanDataV2 {
+  version: 2;
+  profile: OnboardingAnswers | null;
+  weeks: WeekPlan[];
 }
