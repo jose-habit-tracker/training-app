@@ -16,6 +16,7 @@ import { VariantDropdown } from '../../components/training/VariantDropdown';
 import { ExerciseAccordion } from '../../components/training/ExerciseAccordion';
 import { EDITOR_SPORTS, editorSportOf, EditorSport } from '../../lib/training/fields';
 import { sessionTotals } from '../../lib/training/summary';
+import { normalizeLegacyExercises } from '../../lib/training/normalize';
 import { usePlan } from '../../lib/PlanContext';
 import { tapSuccess } from '../../lib/haptics';
 
@@ -38,7 +39,7 @@ export default function EditDayScreen() {
 
   const original = days.find((d) => d.day === day);
   const [form, setForm] = useState<DayPlan | null>(
-    original ? { ...original, exercises: [...(original.exercises ?? [])] } : null,
+    original ? { ...original, exercises: normalizeLegacyExercises([...(original.exercises ?? [])]) } : null,
   );
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function EditDayScreen() {
       return {
         ...f, sessionType: type, title: def.title, duration: def.duration,
         description: def.description, warmup: def.warmup, cooldown: def.cooldown, notes: def.notes,
-        exercises: def.exercises.map((ex, i) => ({ ...ex, id: `${f.day}-${Date.now()}-${i}` })),
+        exercises: normalizeLegacyExercises(def.exercises.map((ex, i) => ({ ...ex, id: `${f.day}-${Date.now()}-${i}` }))),
       };
     });
     setExpandedId(null);

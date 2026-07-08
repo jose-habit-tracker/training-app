@@ -20,7 +20,8 @@ export const WEEKLY_STRUCTURE: DayPlan[] = [
       {
         id: 'mon-2',
         name: 'Series de umbral',
-        reps: '4x8 min',
+        sets: 4,
+        duration: '8 min',
         rest: '2 min entre series',
         notes: 'Ritmo z3-z4, esfuerzo controlado 7/10',
       },
@@ -52,14 +53,16 @@ export const WEEKLY_STRUCTURE: DayPlan[] = [
       {
         id: 'tue-2',
         name: 'Drill técnico',
-        reps: '6x50m',
+        sets: 6,
+        distance: '50m',
         rest: '20s',
         notes: 'Catch-up drill, dedos al cielo',
       },
       {
         id: 'tue-3',
         name: 'Bloque principal',
-        reps: '8x100m',
+        sets: 8,
+        distance: '100m',
         rest: '30s',
         notes: 'Ritmo aeróbico constante, z2-z3',
       },
@@ -150,7 +153,8 @@ export const WEEKLY_STRUCTURE: DayPlan[] = [
       {
         id: 'thu-2',
         name: 'Series VO2max',
-        reps: '6x3 min',
+        sets: 6,
+        duration: '3 min',
         rest: '3 min trote suave',
         notes: 'Ritmo 5km race pace. z5. Esfuerzo 9/10',
       },
@@ -343,7 +347,7 @@ export const SESSION_DEFAULTS: Record<SessionType, SessionDefault> = {
     notes: 'RPE objetivo 7/10. Si hay fatiga acumulada, bajar a ritmo fácil.',
     exercises: [
       { name: 'Calentamiento', duration: '15 min', notes: 'Trote suave z1-z2' },
-      { name: 'Series de umbral', reps: '4x8 min', rest: '2 min entre series', notes: 'Ritmo z3-z4, esfuerzo controlado 7/10' },
+      { name: 'Series de umbral', sets: 4, duration: '8 min', rest: '2 min entre series', notes: 'Ritmo z3-z4, esfuerzo controlado 7/10' },
       { name: 'Enfriamiento', duration: '10 min', notes: 'Trote suave z1' },
     ],
   },
@@ -369,7 +373,7 @@ export const SESSION_DEFAULTS: Record<SessionType, SessionDefault> = {
     notes: 'Si las series salen muy fáciles, añadir 1-2 más. Si hay fatiga, reducir a 4x3.',
     exercises: [
       { name: 'Calentamiento progresivo', duration: '15 min', notes: 'z1→z2→z3, últimos 2 min con 4 aceleraciones de 20s' },
-      { name: 'Series VO2max', reps: '6x3 min', rest: '3 min trote suave', notes: 'Ritmo 5km race pace. z5. Esfuerzo 9/10' },
+      { name: 'Series VO2max', sets: 6, duration: '3 min', rest: '3 min trote suave', notes: 'Ritmo 5km race pace. z5. Esfuerzo 9/10' },
       { name: 'Enfriamiento', duration: '10 min', notes: 'Trote muy suave z1' },
     ],
   },
@@ -382,8 +386,8 @@ export const SESSION_DEFAULTS: Record<SessionType, SessionDefault> = {
     notes: 'Foco en posición horizontal y entrada de mano. Sin forzar ritmo.',
     exercises: [
       { name: 'Calentamiento', distance: '200m', notes: 'Crol suave, foco en respiración' },
-      { name: 'Drill técnico', reps: '6x50m', rest: '20s', notes: 'Catch-up drill, dedos al cielo' },
-      { name: 'Bloque principal', reps: '8x100m', rest: '30s', notes: 'Ritmo aeróbico constante, z2-z3' },
+      { name: 'Drill técnico', sets: 6, distance: '50m', rest: '20s', notes: 'Catch-up drill, dedos al cielo' },
+      { name: 'Bloque principal', sets: 8, distance: '100m', rest: '30s', notes: 'Ritmo aeróbico constante, z2-z3' },
       { name: 'Vuelta a la calma', distance: '100m', notes: 'Espalda relajada' },
     ],
   },
