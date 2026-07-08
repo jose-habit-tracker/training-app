@@ -40,7 +40,8 @@ interface ThreadItem {
 
 export default function HoyScreen() {
   const { colors } = useTheme();
-  const { days, save } = usePlan();
+  const { weeks, currentWeekIndex, save } = usePlan();
+  const days = weeks[currentWeekIndex]?.days ?? [];
   const { plan: todayPlan, weekNumber, dayKey, refresh } = useToday();
   const { sessions: weekSessions, refetch: refetchWeek } = useWeekSessions();
   const recorder = useRecorder();
@@ -241,7 +242,7 @@ export default function HoyScreen() {
               <View style={s.headerRow}>
                 <View style={[s.weekChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
                   <Text style={[s.weekChipText, { color: colors.text3 }]}>
-                    Semana {weekNumber} · {getPhaseLabel(weekNumber)}
+                    Semana {currentWeekIndex + 1} · {weeks[currentWeekIndex]?.focus ?? 'Base'}
                   </Text>
                 </View>
                 <ProgressRing done={weekSessions.length} total={plannedThisWeek} size={48} />
