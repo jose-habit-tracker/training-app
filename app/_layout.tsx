@@ -131,6 +131,14 @@ export default function RootLayout() {
                   presentation: 'modal',
                 }}
               />
+              <Stack.Screen
+                name="session/live"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Sesión en vivo',
+                  headerBackTitle: 'Atrás',
+                }}
+              />
               </Stack>
             </PlanProvider>
           </ThemeProvider>
