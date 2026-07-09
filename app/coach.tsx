@@ -62,7 +62,7 @@ export default function CoachModal() {
     let active = true;
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setInitializing(false); return; }
+      if (!user) { if (active) setInitializing(false); return; }
       userIdRef.current = user.id;
 
       const { data: sessions } = await supabase
@@ -74,7 +74,7 @@ export default function CoachModal() {
       if (active) setRecentSessions((sessions ?? []) as TrainingSession[]);
 
       const convId = await getOrCreateDailyThread(user.id, todayIso);
-      if (!convId) { setInitializing(false); return; }
+      if (!convId) { if (active) setInitializing(false); return; }
       conversationIdRef.current = convId;
 
       const { data: history } = await supabase
@@ -91,12 +91,6 @@ export default function CoachModal() {
     init();
     return () => { active = false; };
   }, [todayIso]);
-
-  useEffect(() => {
-    if (items.length > 0) {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [items]);
 
   const persist = useCallback(async (msg: ChatMessage) => {
     if (!userIdRef.current || !conversationIdRef.current) return;
