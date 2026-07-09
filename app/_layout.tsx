@@ -123,6 +123,14 @@ export default function RootLayout() {
                   headerBackTitle: 'Atrás',
                 }}
               />
+              <Stack.Screen
+                name="coach"
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Coach',
+                  presentation: 'modal',
+                }}
+              />
               </Stack>
             </PlanProvider>
           </ThemeProvider>
